@@ -241,6 +241,7 @@ public class MainActivity extends Activity {
   TextView button(String text, boolean filled, Runnable onClick) {
     TextView b = tv(text, 14, filled ? Color.WHITE : accent, true);
     b.setGravity(Gravity.CENTER);
+    b.setSingleLine(true);
     b.setPadding(dp(16), dp(11), dp(16), dp(11));
     clickable(b, round(filled ? accent : accentSoft, 16), 16, onClick);
     return b;
@@ -952,7 +953,7 @@ public class MainActivity extends Activity {
     if (buttons) {
       LinearLayout b = row();
       b.setPadding(0, dp(14), 0, 0);
-      addWishButton(b, "💬 SMS", true, () -> Wishes.sms(this, h));
+      addWishButton(b, "SMS", true, () -> Wishes.sms(this, h));
       addWishButton(b, "WhatsApp", false, () -> Wishes.whatsapp(this, h));
       addWishButton(b, "Viber", false, () -> Wishes.viber(this, h));
       addWishButton(b, "⋯", false, () -> wishMenu(h));
@@ -963,8 +964,12 @@ public class MainActivity extends Activity {
 
   void addWishButton(LinearLayout parent, String label, boolean filled, Runnable r) {
     TextView b = button(label, filled, r);
-    b.setPadding(dp(8), dp(10), dp(8), dp(10));
-    LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(0, -2, label.equals("⋯") ? 0.6f : 1);
+    b.setPadding(dp(4), 0, dp(4), 0);
+    // Πάντα μία γραμμή: το κείμενο μικραίνει μόνο του αν δεν χωράει (μεγάλη γραμματοσειρά συστήματος)
+    b.setSingleLine(true);
+    b.setMaxLines(1);
+    b.setAutoSizeTextTypeUniformWithConfiguration(9, 14, 1, android.util.TypedValue.COMPLEX_UNIT_SP);
+    LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(0, dp(44), label.equals("⋯") ? 0.55f : 1);
     p.rightMargin = dp(6);
     parent.addView(b, p);
   }
