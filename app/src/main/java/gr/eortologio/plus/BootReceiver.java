@@ -9,5 +9,8 @@ public class BootReceiver extends BroadcastReceiver {
   @Override public void onReceive(Context context, Intent intent) {
     EventStore.invalidate(); // αλλαγή ώρας/ζώνης → νέο «σήμερα»
     ReminderReceiver.schedule(context);
+    PendingResult pr = goAsync();
+    Context app = context.getApplicationContext();
+    new Thread(() -> { try { TodayWidget.updateAll(app); } finally { pr.finish(); } }).start();
   }
 }

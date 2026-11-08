@@ -86,6 +86,7 @@ public final class EventStore {
   private static final Map<Integer, Map<LocalDate, List<Event>>> yearIndex = new HashMap<>();
   private static List<Event> allCache;
   private static final Map<Integer, LocalDate> easterCache = new HashMap<>();
+  private static Map<String, List<Event>> byCanon;
 
   private final SharedPreferences prefs;
   private final Context app;
@@ -134,7 +135,7 @@ public final class EventStore {
     invalidate();
   }
 
-  static synchronized void invalidate() { allCache = null; yearIndex.clear(); }
+  static synchronized void invalidate() { allCache = null; yearIndex.clear(); byCanon = null; }
 
   // ---------- όλα ----------
   synchronized List<Event> all() {
@@ -180,10 +181,14 @@ public final class EventStore {
   }
 
   /** Ονομαστικές γιορτές ανά κανονικό όνομα (π.χ. "Ιωάννης" → 7/1, 24/6, ...). */
-  List<Event> nameDaysOf(String canon) {
-    List<Event> r = new ArrayList<>(3);
-    for (Event e : all()) if (e.isNameDay() && e.canon.equals(canon)) r.add(e);
-    return r;
+  synchronized List<Event> nameDaysOf(String canon) {
+    if (byCanon == null) {
+      Map<String, List<Event>> m = new HashMap<>(300);
+      for (Event e : all()) if (e.isNameDay()) m.computeIfAbsent(e.canon, k -> new ArrayList<>(3)).add(e);
+      byCanon = m;
+    }
+    List<Event> r = byCanon.get(canon);
+    return r == null ? new ArrayList<>() : new ArrayList<>(r);
   }
 
   private void load(String filename, boolean personal, List<Event> out) {

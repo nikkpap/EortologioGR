@@ -84,7 +84,7 @@ final class AutoWishes {
       if (h.birthday && MODE_NAMEDAY.equals(mode)) continue;
       if (!h.birthday && MODE_BIRTHDAY.equals(mode)) continue;
       String num = h.person.phone;
-      if (num == null || num.replaceAll("\\D", "").length() < 8) continue;
+      if (num == null || num.replaceAll("\\D", "").length() < 8 || !ContactSync.isMobile(num)) continue; // όχι σταθερά
       if (block.contains(blockKey(h.person))) continue;
       if (!seen.add(Wishes.intl(num))) continue;
       out.add(h);

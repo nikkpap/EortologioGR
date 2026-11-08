@@ -151,5 +151,7 @@ final class OtaUpdater {
     try { return Integer.parseInt(s.replaceAll("\\D", "")); } catch (Exception e) { return 0; }
   }
 
-  private static void ui(Activity a, Runnable r) { if (!a.isFinishing()) a.runOnUiThread(r); }
+  private static void ui(Activity a, Runnable r) {
+    a.runOnUiThread(() -> { if (!a.isFinishing() && !a.isDestroyed()) r.run(); });
+  }
 }

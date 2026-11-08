@@ -17,6 +17,7 @@ final class ContactSync {
     final String displayName;
     String givenName;
     String phone;
+    int phoneRank = -1; // 3 = κύριο, 2 = κινητό, 1 = άλλο
     final Set<String> canon = new LinkedHashSet<>();
     int bMonth, bDay, bYear;
 
@@ -24,10 +25,10 @@ final class ContactSync {
 
     /** Μικρό όνομα για την ευχή. */
     String callName() {
-      if (givenName != null && !givenName.trim().isEmpty()) return givenName.trim();
+      if (givenName != null && !givenName.trim().isEmpty()) return Names.pretty(givenName.trim());
       String[] t = displayName.trim().split("\\s+");
-      for (String s : t) if (!Names.match(s).isEmpty()) return s;
-      return t.length > 0 ? t[0] : displayName;
+      for (String s : t) if (!Names.match(s).isEmpty()) return Names.pretty(s);
+      return Names.pretty(t.length > 0 ? t[0] : displayName);
     }
 
     boolean hasBirthday() { return bMonth > 0 && bDay > 0; }
@@ -83,7 +84,11 @@ final class ContactSync {
             String given = c.getString(4);
             if (given != null && !given.trim().isEmpty()) p.givenName = given.trim();
           } else if (CommonDataKinds.Phone.CONTENT_ITEM_TYPE.equals(mime)) {
-            if (d1 != null && (p.phone == null || c.getInt(5) != 0)) p.phone = d1;
+            if (d1 != null) {
+              int type = c.isNull(4) ? 0 : c.getInt(4);
+              int rank = c.getInt(5) != 0 ? 3 : type == CommonDataKinds.Phone.TYPE_MOBILE || isMobile(d1) ? 2 : 1;
+              if (rank > p.phoneRank) { p.phone = d1; p.phoneRank = rank; }
+            }
           } else if (CommonDataKinds.Event.CONTENT_ITEM_TYPE.equals(mime)) {
             int type = c.isNull(4) ? 0 : c.getInt(4);
             if (type == CommonDataKinds.Event.TYPE_BIRTHDAY) parseBirthday(p, d1);
@@ -108,6 +113,12 @@ final class ContactSync {
     cache = out;
     cacheTime = now;
     return out;
+  }
+
+  /** Κινητό; Ελλάδα: 69…· εξωτερικό: δεκτό (δεν ξέρουμε). */
+  static boolean isMobile(String phone) {
+    String n = Wishes.intl(phone);
+    return n.startsWith("30") ? n.startsWith("306") : n.length() >= 8;
   }
 
   /** "1985-03-12", "--03-12", "12/03/1985" */
@@ -176,6 +187,9 @@ final class ContactSync {
         out.add(new Hit(p, d, bday, bday ? "Γενέθλια" : e.title));
       }
     }
+    // Χωρίς διπλοεγγραφές (ίδια επαφή σε 2 λογαριασμούς / SIM): ίδιος αριθμός ή όνομα + ημερομηνία + τύπος
+    Set<String> uniq = new HashSet<>();
+    out.removeIf(h -> !uniq.add((h.person.phone != null ? Wishes.intl(h.person.phone) : Names.norm(h.person.displayName)) + "|" + h.date + "|" + h.birthday));
     out.sort((a, b) -> {
       int c = a.date.compareTo(b.date);
       return c != 0 ? c : a.person.displayName.compareToIgnoreCase(b.person.displayName);

@@ -93,7 +93,17 @@ final class Church {
   // ---------------- Αργίες ----------------
 
   /** Επίσημες αργίες (όνομα) για ένα έτος. */
-  static Map<LocalDate, String> holidays(int y) {
+  private static final Map<Integer, Map<LocalDate, String>> holCache = new HashMap<>();
+
+  static synchronized Map<LocalDate, String> holidays(int y) {
+    Map<LocalDate, String> c = holCache.get(y);
+    if (c != null) return c;
+    c = buildHolidays(y);
+    holCache.put(y, c);
+    return c;
+  }
+
+  private static Map<LocalDate, String> buildHolidays(int y) {
     LocalDate e = EventStore.orthodoxEaster(y);
     Map<LocalDate, String> m = new TreeMap<>();
     m.put(LocalDate.of(y, 1, 1), "Πρωτοχρονιά");

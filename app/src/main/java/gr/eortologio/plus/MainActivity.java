@@ -514,12 +514,11 @@ public class MainActivity extends Activity {
       c.addView(d);
       c.addView(button("Σύνδεση επαφών", true, this::askContacts));
       body.addView(c);
-    } else if (ContactSync.enabled(this)) {
-      List<ContactSync.Hit> hits = ContactSync.hits(this, store, today, 1);
-      if (!hits.isEmpty()) {
-        section("Από τις επαφές σου", "Όλες ›", () -> { page = "contacts"; render(); });
-        for (ContactSync.Hit h : hits) body.addView(contactCard(h, today, true));
-      }
+    }
+    List<ContactSync.Hit> hits = ContactSync.hits(this, store, today, 1); // και γενέθλια «Δικά μου» συνδεδεμένα με επαφή
+    if (!hits.isEmpty()) {
+      section("Από τις επαφές σου", "Όλες ›", () -> { page = "contacts"; render(); });
+      for (ContactSync.Hit h : hits) body.addView(contactCard(h, today, true));
     }
 
     // ---- Προσωπικά σήμερα ----

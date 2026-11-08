@@ -15,6 +15,10 @@ final class Names {
   private static Map<String, Set<String>> index;
   /** canonical → εμφανιζόμενες παραλλαγές (μόνο ελληνικές). */
   private static Map<String, List<String>> variants;
+  /** normalized → σωστή γραφή (π.χ. "μιχαλησ" → "Μιχάλης") για όμορφη εμφάνιση ονομάτων γραμμένων με κεφαλαία. */
+  private static Map<String, String> display;
+  /** canonical → λατινικά κλειδιά (George, John…) — για να μη σαρώνεται όλο το ευρετήριο σε κάθε αναζήτηση. */
+  private static Map<String, List<String>> latinOf;
 
   private Names() {}
 
@@ -39,6 +43,8 @@ final class Names {
   static synchronized void loadFrom(BufferedReader br) throws java.io.IOException {
     Map<String, Set<String>> idx = new HashMap<>(1024);
     Map<String, List<String>> vars = new HashMap<>(256);
+    Map<String, String> disp = new HashMap<>(1024);
+    Map<String, List<String>> lat = new HashMap<>(256);
     String line;
     while ((line = br.readLine()) != null) {
       line = line.trim();
@@ -48,17 +54,37 @@ final class Names {
       if (canon.isEmpty()) continue;
       List<String> shown = vars.computeIfAbsent(canon, k -> new ArrayList<>());
       addKey(idx, canon, canon);
+      disp.putIfAbsent(norm(canon), canon);
       if (eq >= 0) {
         for (String v : line.substring(eq + 1).split(",")) {
           String t = v.trim();
           if (t.isEmpty()) continue;
           addKey(idx, t, canon);
+          if (isGreek(t)) disp.putIfAbsent(norm(t), t);
+          else lat.computeIfAbsent(canon, k -> new ArrayList<>()).add(norm(t));
           if (isGreek(t) && !norm(t).equals(norm(canon)) && !containsNorm(shown, t)) shown.add(t);
         }
       }
     }
     index = idx;
     variants = vars;
+    display = disp;
+    latinOf = lat;
+  }
+
+  /** «ΜΙΧΑΛΗΣ» → «Μιχάλης», «MIXALIS» → «Mixalis»· αλλιώς όπως είναι. */
+  static String pretty(String s) {
+    if (s == null || s.isEmpty()) return s;
+    if (isGreek(s) && display != null) {
+      String d = display.get(norm(s));
+      if (d != null) return d;
+    }
+    boolean allUp = s.equals(s.toUpperCase(Locale.ROOT)), allLow = s.equals(s.toLowerCase(Locale.ROOT));
+    if (allUp || allLow) {
+      String l = s.toLowerCase(new Locale("el", "GR"));
+      return l.substring(0, 1).toUpperCase(new Locale("el", "GR")) + l.substring(1);
+    }
+    return s;
   }
 
   private static boolean containsNorm(List<String> list, String s) {
@@ -106,10 +132,9 @@ final class Names {
       List<String> v = variants.get(canon);
       if (v != null) for (String x : v) { keys.add(norm(x)); keys.addAll(latin(norm(x))); }
     }
-    if (index != null) {
-      // και οι λατινικές μορφές του NAMES.DAT (George, John...)
-      for (Map.Entry<String, Set<String>> e : index.entrySet())
-        if (e.getValue().contains(canon) && !isGreek(e.getKey())) keys.add(e.getKey());
+    if (latinOf != null) {
+      List<String> l = latinOf.get(canon); // λατινικές μορφές του NAMES.DAT (George, John...)
+      if (l != null) keys.addAll(l);
     }
     return new ArrayList<>(keys);
   }
