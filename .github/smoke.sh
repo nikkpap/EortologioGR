@@ -1,5 +1,6 @@
 #!/bin/bash
 # Smoke test σε emulator: ανοίγει όλες τις οθόνες, στέλνει ειδοποίηση, ελέγχει για crash.
+# Τρέχει σε κάθε push στο main πριν από την έκδοση (βλ. AGENTS.md).
 adb root || true
 sleep 3
 adb install -r app/build/outputs/apk/debug/app-debug.apk
