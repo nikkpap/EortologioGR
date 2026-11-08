@@ -33,6 +33,9 @@ final class T {
   }
 
   static {
+    m.put("Το Android κλειδώνει την άδεια SMS σε εφαρμογές που δεν είναι από το Play Store. Ξεκλείδωμα μία φορά:\n\n1. Πάτα «Ρυθμίσεις» παρακάτω (Πληροφορίες εφαρμογής).\n2. Πάνω δεξιά ⋮ → «Επιτρέψτε τις περιορισμένες ρυθμίσεις» (Allow restricted settings) → δακτυλικό/PIN.\n3. Άδειες → SMS → Να επιτρέπεται.\n4. Γύρνα εδώ και άνοιξε ξανά τις αυτόματες ευχές.\n\nΑν δεν βλέπεις το ⋮, πάτα πρώτα μία φορά το γκρι «Να επιτρέπεται» στην άδεια SMS.", "Android locks the SMS permission for apps not installed from the Play Store. Unlock it once:\n\n1. Tap “Settings” below (App info).\n2. Top right ⋮ → “Allow restricted settings” → fingerprint/PIN.\n3. Permissions → SMS → Allow.\n4. Come back here and turn automatic wishes on again.\n\nIf you don’t see ⋮, first tap the greyed “Allow” in the SMS permission once.");
+    m.put("🔒 Άδεια SMS", "🔒 SMS permission");
+    m.put("Ρυθμίσεις", "Settings");
     m.put("Ανάπτυξη: Νικόλαος Κ. Παρίδης\nALU DEV TEAM · Πτολεμαΐδα", "Developed by Nikolaos K. Paridis\nALU DEV TEAM · Ptolemaida, Greece");
     m.put("Ελληνικό εορτολόγιο με υπενθυμίσεις και ευχές στις επαφές σου. Όλα τα δεδομένα μένουν στη συσκευή.", "Greek name day calendar with reminders and wishes for your contacts. All data stays on your device.");
     m.put("Εμφάνιση οδηγού ρύθμισης ξανά", "Show the setup guide again");

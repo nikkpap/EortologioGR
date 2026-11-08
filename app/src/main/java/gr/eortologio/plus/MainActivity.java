@@ -161,7 +161,7 @@ public class MainActivity extends Activity {
     super.onRequestPermissionsResult(rc, perms, res);
     if (rc == RC_SMS) {
       if (res.length > 0 && res[0] == PackageManager.PERMISSION_GRANTED) enableAutoSms();
-      else openAppSettings(T.t("Χωρίς την άδεια «SMS» δεν μπορούν να σταλούν αυτόματες ευχές. Ρυθμίσεις → Άδειες → SMS → Να επιτρέπεται."));
+      else smsRestrictedHelp();
       return;
     }
     if (rc == RC_CONTACTS) {
@@ -1467,7 +1467,8 @@ public class MainActivity extends Activity {
         .setNegativeButton(T.t("Όχι"), null)
         .setPositiveButton(T.t("Ναι, συνέχεια"), (d, w) -> chooseAutoMode(() -> {
           if (AutoWishes.hasPermission(this)) enableAutoSms();
-          else requestPermissions(new String[] { Manifest.permission.SEND_SMS }, RC_SMS);
+          else if (prefs.getBoolean("askedSms", false) && !shouldShowRequestPermissionRationale(Manifest.permission.SEND_SMS)) smsRestrictedHelp();
+          else { prefs.edit().putBoolean("askedSms", true).apply(); requestPermissions(new String[] { Manifest.permission.SEND_SMS }, RC_SMS); }
         })).show();
   }
 
@@ -1513,6 +1514,18 @@ public class MainActivity extends Activity {
       for (int i = 0; i < checked.length; i++) { checked[i] = !any; dlg.getListView().setItemChecked(i, !any); }
     }));
     dlg.show();
+  }
+
+  /** Android 13+: σε εφαρμογές εκτός Play Store η άδεια SMS είναι «κλειδωμένη» (Restricted settings). Οδηγίες βήμα-βήμα. */
+  void smsRestrictedHelp() {
+    String msg = Build.VERSION.SDK_INT >= 33
+        ? T.t("Το Android κλειδώνει την άδεια SMS σε εφαρμογές που δεν είναι από το Play Store. Ξεκλείδωμα μία φορά:\n\n1. Πάτα «Ρυθμίσεις» παρακάτω (Πληροφορίες εφαρμογής).\n2. Πάνω δεξιά ⋮ → «Επιτρέψτε τις περιορισμένες ρυθμίσεις» (Allow restricted settings) → δακτυλικό/PIN.\n3. Άδειες → SMS → Να επιτρέπεται.\n4. Γύρνα εδώ και άνοιξε ξανά τις αυτόματες ευχές.\n\nΑν δεν βλέπεις το ⋮, πάτα πρώτα μία φορά το γκρι «Να επιτρέπεται» στην άδεια SMS.")
+        : T.t("Χωρίς την άδεια «SMS» δεν μπορούν να σταλούν αυτόματες ευχές. Ρυθμίσεις → Άδειες → SMS → Να επιτρέπεται.");
+    new AlertDialog.Builder(this).setTitle(T.t("🔒 Άδεια SMS"))
+        .setMessage(msg)
+        .setNegativeButton(T.t("Άκυρο"), null)
+        .setPositiveButton(T.t("Ρυθμίσεις"), (d, w) -> startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + getPackageName()))))
+        .show();
   }
 
   void enableAutoSms() {
