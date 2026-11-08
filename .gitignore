@@ -7,3 +7,7 @@ local.properties
 *.jks
 *.keystore
 *.apk
+*.p12
+*.pfx
+*signing*backup*
+release.p12
