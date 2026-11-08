@@ -31,6 +31,8 @@ public final class EventStore {
     final boolean movable, personal;
     /** Για ονομαστικές γιορτές: το επίσημο όνομα (κλειδί παραλλαγών). */
     final String canon;
+    /** Προαιρετική σύνδεση με επαφή (για ευχές/αυτόματο SMS σε προσωπικές ημερομηνίες). */
+    String phone, linkName;
 
     Event(String id, String title, String category, int day, int month, int offset, int year, boolean movable, boolean personal) {
       this.id = id; this.title = title; this.category = category; this.day = day; this.month = month;
@@ -67,12 +69,15 @@ public final class EventStore {
       x.put("id", id); x.put("title", title); x.put("category", category);
       x.put("day", day); x.put("month", month); x.put("offset", offset);
       x.put("birthYear", year); x.put("movable", movable);
+      if (phone != null) { x.put("phone", phone); x.put("linkName", linkName == null ? "" : linkName); }
       return x;
     }
 
     static Event parse(JSONObject o) {
-      return new Event(o.optString("id"), o.optString("title"), o.optString("category", CAT_PERSONAL),
+      Event e = new Event(o.optString("id"), o.optString("title"), o.optString("category", CAT_PERSONAL),
           o.optInt("day", 1), o.optInt("month", 1), o.optInt("offset"), o.optInt("birthYear"), o.optBoolean("movable"), true);
+      if (o.has("phone") && !o.optString("phone").isEmpty()) { e.phone = o.optString("phone"); e.linkName = o.optString("linkName", null); }
+      return e;
     }
   }
 
@@ -99,6 +104,13 @@ public final class EventStore {
       for (int i = 0; i < a.length(); i++) r.add(Event.parse(a.getJSONObject(i)));
     } catch (Exception ignored) { }
     return r;
+  }
+
+  String rawPersonal() { return prefs.getString("personal", "[]"); }
+
+  void restoreRaw(String json) {
+    prefs.edit().putString("personal", json).apply();
+    invalidate();
   }
 
   void save(Event e) {

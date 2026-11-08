@@ -132,7 +132,6 @@ final class ContactSync {
   /** Ποιες επαφές γιορτάζουν ή έχουν γενέθλια από {@code from} έως {@code from+days}. Ταξινομημένα κατά ημερομηνία. */
   static List<Hit> hits(Context ctx, EventStore store, LocalDate from, int days) {
     List<Person> people = load(ctx);
-    if (people.isEmpty()) return Collections.emptyList();
     // canonical → ημερομηνίες εντός παραθύρου (μία προσπέλαση του ευρετηρίου ανά ημέρα)
     Map<String, List<LocalDate>> nameDates = new HashMap<>();
     for (int i = 0; i <= days; i++) {
@@ -156,6 +155,25 @@ final class ContactSync {
             if (!b.isBefore(from) && !b.isAfter(end)) out.add(new Hit(p, b, true, "Γενέθλια"));
           } catch (Exception ignored) { }
         }
+      }
+    }
+    // Προσωπικές ημερομηνίες συνδεδεμένες με επαφή (π.χ. γενέθλια που δεν υπάρχουν στις επαφές)
+    Set<String> have = new HashSet<>();
+    for (Hit h : out) if (h.person.phone != null) have.add(Wishes.intl(h.person.phone) + "|" + h.date + "|" + h.birthday);
+    for (EventStore.Event e : store.editable()) {
+      if (e.phone == null) continue;
+      boolean bday = EventStore.CAT_BIRTHDAY.equals(e.category);
+      for (int i = 0; i <= days; i++) {
+        LocalDate d = from.plusDays(i);
+        if (!e.onYear(d.getYear()).equals(d)) continue;
+        if (!have.add(Wishes.intl(e.phone) + "|" + d + "|" + bday)) continue;
+        String name = e.linkName != null && !e.linkName.isEmpty() ? e.linkName : e.title;
+        Person p = new Person(-Math.abs((long) (e.id + name).hashCode()) - 1, name);
+        p.phone = e.phone;
+        String first = name.trim().split("\\s+")[0];
+        p.givenName = first;
+        if (bday) { p.bMonth = e.month; p.bDay = e.day; p.bYear = e.year; }
+        out.add(new Hit(p, d, bday, bday ? "Γενέθλια" : e.title));
       }
     }
     out.sort((a, b) -> {

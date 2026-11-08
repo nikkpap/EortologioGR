@@ -52,7 +52,9 @@ public class MainActivity extends Activity {
   private static final DateTimeFormatter F_SHORT = DateTimeFormatter.ofPattern("d MMM", EL);
   private static final DateTimeFormatter F_MONTH = DateTimeFormatter.ofPattern("LLLL yyyy", EL);
 
-  private static final int RC_NOTIF = 12, RC_CONTACTS = 13;
+  private static final int RC_NOTIF = 12, RC_CONTACTS = 13, RC_PICK = 15, RC_EXPORT = 16, RC_IMPORT = 17;
+  interface OnPick { void picked(String number, String name); }
+  private OnPick pickContact;
 
   private EventStore store;
   private SharedPreferences prefs;
@@ -116,6 +118,35 @@ public class MainActivity extends Activity {
     if (!query.isEmpty()) { query = ""; render(); return; }
     if (!"today".equals(page)) { page = "today"; render(); return; }
     super.onBackPressed();
+  }
+
+  @Override protected void onActivityResult(int rc, int res, Intent data) {
+    super.onActivityResult(rc, res, data);
+    if (res != RESULT_OK || data == null || data.getData() == null) return;
+    Uri uri = data.getData();
+    if (rc == RC_PICK && pickContact != null) {
+      String[] proj = { android.provider.ContactsContract.CommonDataKinds.Phone.NUMBER, android.provider.ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME };
+      try (android.database.Cursor c = getContentResolver().query(uri, proj, null, null, null)) {
+        if (c != null && c.moveToFirst()) pickContact.picked(c.getString(0), c.getString(1));
+      } catch (Exception e) { toast("Δεν διαβάστηκε η επαφή"); }
+      pickContact = null;
+    } else if (rc == RC_EXPORT) {
+      try { Backup.write(this, uri); toast("Το αντίγραφο αποθηκεύτηκε ✓"); }
+      catch (Exception e) { toast("Αποτυχία: " + e.getMessage()); }
+    } else if (rc == RC_IMPORT) {
+      new AlertDialog.Builder(this).setTitle("Επαναφορά;")
+          .setMessage("Θα αντικατασταθούν τα «Δικά μου» και οι ρυθμίσεις με αυτά του αντιγράφου.")
+          .setNegativeButton("Άκυρο", null)
+          .setPositiveButton("Επαναφορά", (d, w) -> {
+            try {
+              int n = Backup.restore(this, uri);
+              searchIndex = null;
+              ReminderReceiver.schedule(this);
+              toast("Επαναφέρθηκαν " + n + " ημερομηνίες ✓");
+              recreate();
+            } catch (Exception e) { toast("Αποτυχία: " + e.getMessage()); }
+          }).show();
+    }
   }
 
   @Override public void onRequestPermissionsResult(int rc, String[] perms, int[] res) {
@@ -453,7 +484,26 @@ public class MainActivity extends Activity {
       t.setPadding(0, dp(12), 0, 0);
       hero.addView(t);
     }
+    Church.FastInfo fi = Church.fast(today);
+    if (fi.type != Church.Fast.NONE) {
+      TextView t = tv(Church.fastIcon(fi.type) + " " + fi.label, 13, sub, false);
+      t.setPadding(0, dp(10), 0, 0);
+      hero.addView(t);
+    }
     body.addView(hero);
+
+    // ---- Επόμενο τριήμερο (μέσα σε 45 ημέρες)
+    List<Church.LongWeekend> lws = Church.longWeekends(today, 45);
+    if (!lws.isEmpty()) {
+      Church.LongWeekend lw = lws.get(0);
+      LinearLayout c = card();
+      c.setBackground(round(dark ? 0xff16324a : 0xffe0f2fe, 22));
+      long dd = EventStore.daysUntil(today, lw.start);
+      String range = lw.start.format(F_SHORT) + " – " + lw.end.format(F_SHORT);
+      c.addView(tv("🏖️ " + (lw.days() >= 4 ? lw.days() + "ήμερο" : "Τριήμερο") + ": " + lw.name, 16, ink, true));
+      c.addView(tv(range + " · " + (dd <= 0 ? "τώρα!" : when(dd)) + (lw.bridge ? " · με «γέφυρα» 1 ημέρας" : ""), 13, sub, false));
+      body.addView(c);
+    }
 
     // ---- Επαφές που γιορτάζουν σήμερα/αύριο ----
     if (!ContactSync.granted(this)) {
@@ -843,6 +893,18 @@ public class MainActivity extends Activity {
       d.addView(t);
     }
     if (list.isEmpty()) d.addView(tv("Δεν υπάρχει γιορτή αυτή τη μέρα.", 14, sub, false));
+    String ph = Church.holiday(selectedDay);
+    if (ph != null) {
+      TextView t = tv("🏖️ Επίσημη αργία: " + ph, 14, pink, true);
+      t.setPadding(0, dp(10), 0, 0);
+      d.addView(t);
+    }
+    Church.FastInfo sfi = Church.fast(selectedDay);
+    if (sfi.type != Church.Fast.NONE) {
+      TextView t = tv(Church.fastIcon(sfi.type) + " " + sfi.label, 13, sub, false);
+      t.setPadding(0, dp(10), 0, 0);
+      d.addView(t);
+    }
     TextView add = tv("+ Πρόσθεσε δική σου ημερομηνία εδώ", 14, accent, true);
     add.setPadding(0, dp(14), 0, 0);
     final LocalDate sd = selectedDay;
@@ -859,7 +921,7 @@ public class MainActivity extends Activity {
       if (e.isNameDay()) names = true; else if (e.personal) personal = true; else holiday = true;
     }
     boolean sel = date.equals(selectedDay), isToday = date.equals(today);
-    boolean weekend = date.getDayOfWeek() == DayOfWeek.SATURDAY || date.getDayOfWeek() == DayOfWeek.SUNDAY;
+    boolean weekend = date.getDayOfWeek() == DayOfWeek.SATURDAY || date.getDayOfWeek() == DayOfWeek.SUNDAY || Church.holiday(date) != null;
     LinearLayout cell = col();
     cell.setGravity(Gravity.CENTER);
     TextView n = tv(String.valueOf(date.getDayOfMonth()), 15, sel ? Color.WHITE : (holiday || weekend) ? pink : ink, sel || isToday);
@@ -920,6 +982,16 @@ public class MainActivity extends Activity {
     r.addView(t, new LinearLayout.LayoutParams(0, -2, 1));
     r.addView(button("↻ Ανανέωση", false, () -> { ContactSync.invalidate(); toast("Ανανεώθηκε"); render(); }));
     info.addView(r);
+    int sentYear = 0;
+    String y = String.valueOf(today.getYear());
+    for (String l : prefs.getString("autoSmsLog", "").split("\n")) if (l.startsWith(y) && l.contains("✓")) sentYear++;
+    int month = 0;
+    Set<Long> seenM = new HashSet<>();
+    for (ContactSync.Hit h : ContactSync.hits(this, store, today, today.lengthOfMonth() - today.getDayOfMonth()))
+      if (seenM.add(h.person.id)) month++;
+    TextView st = tv("📊 Αυτόν τον μήνα γιορτάζουν/έχουν γενέθλια: " + month + (sentYear > 0 ? "  ·  ✉️ Φέτος στάλθηκαν " + sentYear + " αυτόματες ευχές" : ""), 13, sub, false);
+    st.setPadding(0, dp(10), 0, 0);
+    info.addView(st);
     body.addView(info);
 
     List<ContactSync.Hit> hits = ContactSync.hits(this, store, today, 365);
@@ -1063,7 +1135,8 @@ public class MainActivity extends Activity {
       LocalDate d = next.get(e);
       int y = e.yearsAt(d);
       String icon = EventStore.CAT_BIRTHDAY.equals(e.category) ? "🎂 " : EventStore.CAT_NAME.equals(e.category) ? "🎉 " : EventStore.CAT_ANNIVERSARY.equals(e.category) ? "💍 " : "⭐ ";
-      body.addView(simpleRow(d, icon + e.title, e.category + (y > 0 ? " · " + y + " χρόνια" : "") + " · " + when(EventStore.daysUntil(today, d)), today, () -> edit(e, null)));
+      body.addView(simpleRow(d, icon + e.title, e.category + (y > 0 ? " · " + y + " χρόνια" : "") + " · " + when(EventStore.daysUntil(today, d))
+          + (e.phone != null ? " · 👤" : ""), today, () -> edit(e, null)));
     }
   }
 
@@ -1131,6 +1204,27 @@ public class MainActivity extends Activity {
       refresh.run();
     });
 
+    // Σύνδεση με επαφή: για κουμπιά ευχών και αυτόματο SMS
+    final String[] link = { e != null ? e.phone : null, e != null ? e.linkName : null };
+    TextView linkBtn = button("", false, () -> { });
+    Runnable refreshLink = () -> linkBtn.setText(link[0] == null ? "👤  Σύνδεση με επαφή (για ευχές / SMS)"
+        : "👤  " + (link[1] != null ? link[1] : "") + " · " + link[0] + "   ✕");
+    refreshLink.run();
+    linkBtn.setOnClickListener(v -> {
+      if (link[0] != null) { link[0] = null; link[1] = null; refreshLink.run(); return; }
+      pickContact = (num, nm) -> {
+        link[0] = num; link[1] = nm;
+        if (name.getText().toString().trim().isEmpty() && nm != null) name.setText(nm);
+        refreshLink.run();
+      };
+      try {
+        startActivityForResult(new Intent(Intent.ACTION_PICK, android.provider.ContactsContract.CommonDataKinds.Phone.CONTENT_URI), RC_PICK);
+      } catch (Exception ex) { toast("Δεν βρέθηκε εφαρμογή επαφών"); }
+    });
+    LinearLayout.LayoutParams lp2 = new LinearLayout.LayoutParams(-1, -2);
+    lp2.topMargin = dp(8);
+    form.addView(linkBtn, lp2);
+
     AlertDialog.Builder b = new AlertDialog.Builder(this).setTitle(fresh ? "Νέα ημερομηνία" : "Επεξεργασία").setView(form).setNegativeButton("Άκυρο", null);
     if (!fresh) b.setNeutralButton("Διαγραφή", (d, w) -> new AlertDialog.Builder(this).setMessage("Διαγραφή του «" + e.title + "»;")
         .setNegativeButton("Όχι", null).setPositiveButton("Διαγραφή", (d2, w2) -> { store.delete(e.id); searchIndex = null; render(); }).show());
@@ -1142,7 +1236,10 @@ public class MainActivity extends Activity {
       int year = withYear.isChecked() ? date[2] : 0;
       if (year > now.getYear()) { toast("Το έτος είναι στο μέλλον"); return; }
       String cat = cats[Math.max(0, rg.getCheckedRadioButtonId() - 1000)];
-      store.save(new EventStore.Event(fresh ? "user:" + UUID.randomUUID() : e.id, title, cat, date[0], date[1], 0, year, false, true));
+      EventStore.Event ne = new EventStore.Event(fresh ? "user:" + UUID.randomUUID() : e.id, title, cat, date[0], date[1], 0, year, false, true);
+      ne.phone = link[0];
+      ne.linkName = link[1];
+      store.save(ne);
       ReminderReceiver.schedule(this);
       toast("Αποθηκεύτηκε ✓");
       dlg.dismiss();
@@ -1258,6 +1355,20 @@ public class MainActivity extends Activity {
     up.addView(divider());
     up.addView(settingRow("Έλεγχος τώρα", "Έκδοση " + OtaUpdater.currentVersion(this), () -> OtaUpdater.check(this, true)));
     body.addView(up);
+    section("💾 Αντίγραφο ασφαλείας", null, null);
+    LinearLayout bk = card();
+    bk.addView(settingRow("Αποθήκευση αντιγράφου", "«Δικά μου», μηνύματα, εξαιρέσεις → αρχείο (π.χ. στο Drive)", () -> {
+      Intent i = new Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("application/json")
+          .putExtra(Intent.EXTRA_TITLE, "eortologio-backup-" + LocalDate.now() + ".json");
+      try { startActivityForResult(i, RC_EXPORT); } catch (Exception ex) { toast("Δεν υποστηρίζεται σε αυτή τη συσκευή"); }
+    }));
+    bk.addView(divider());
+    bk.addView(settingRow("Επαναφορά από αντίγραφο", "Διάλεξε το αρχείο .json", () -> {
+      Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*");
+      try { startActivityForResult(i, RC_IMPORT); } catch (Exception ex) { toast("Δεν υποστηρίζεται σε αυτή τη συσκευή"); }
+    }));
+    body.addView(bk);
+
     section("ℹ️ Σχετικά", null, null);
     LinearLayout ab = card();
     LinearLayout head = row();

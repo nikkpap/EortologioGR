@@ -73,7 +73,7 @@ final class AutoWishes {
   /** Ποιοι θα πάρουν σήμερα αυτόματο SMS (μετά από φίλτρα: τύπος, εξαιρέσεις, ήδη σταλμένα, όριο). */
   static List<ContactSync.Hit> pending(Context ctx) {
     List<ContactSync.Hit> out = new ArrayList<>();
-    if (!enabled(ctx) || !ContactSync.enabled(ctx)) return out;
+    if (!enabled(ctx)) return out;
     SharedPreferences sp = ReminderReceiver.sp(ctx);
     String mode = sp.getString("autoSmsMode", MODE_BOTH);
     Set<String> done = doneToday(sp, LocalDate.now().toString());
@@ -96,7 +96,7 @@ final class AutoWishes {
   /** Στέλνει τις σημερινές ευχές. Επιστρέφει τα ονόματα όσων στάλθηκαν τώρα. */
   static synchronized List<String> sendToday(Context ctx) {
     List<String> sentNow = new ArrayList<>();
-    if (!enabled(ctx) || !ContactSync.enabled(ctx) || cancelledToday(ctx)) return sentNow;
+    if (!enabled(ctx) || cancelledToday(ctx)) return sentNow;
     SharedPreferences sp = ReminderReceiver.sp(ctx);
     LocalDate today = LocalDate.now();
     String key = today.toString();
