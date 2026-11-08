@@ -109,6 +109,7 @@ public class MainActivity extends Activity {
   @Override protected void onResume() {
     super.onResume();
     render(); // ενημερώνει κατάσταση αδειών/μπαταρίας όταν επιστρέφουμε από τις Ρυθμίσεις
+    new Thread(() -> TodayWidget.updateAll(getApplicationContext())).start();
   }
 
   @Override public void onBackPressed() {
@@ -1008,7 +1009,9 @@ public class MainActivity extends Activity {
 
   void wishMenu(ContactSync.Hit h) {
     String msg = Wishes.message(this, h);
-    String[] items = { "💬 SMS", "🟢 WhatsApp", "🟣 Viber", "📤 Άλλη εφαρμογή", "📞 Κλήση", "📋 Αντιγραφή μηνύματος" };
+    boolean blocked = AutoWishes.isBlocked(this, h.person);
+    String[] items = { "💬 SMS", "🟢 WhatsApp", "🟣 Viber", "📤 Άλλη εφαρμογή", "📞 Κλήση", "📋 Αντιγραφή μηνύματος",
+        blocked ? "✅ Να παίρνει αυτόματο SMS" : "🚫 Να μην παίρνει αυτόματο SMS" };
     new AlertDialog.Builder(this).setTitle(h.person.displayName + "\n«" + msg + "»").setItems(items, (d, w) -> {
       switch (w) {
         case 0: Wishes.sms(this, h); break;
@@ -1016,6 +1019,10 @@ public class MainActivity extends Activity {
         case 2: Wishes.viber(this, h); break;
         case 3: Wishes.share(this, h, null); break;
         case 4: Wishes.call(this, h); break;
+        case 6:
+          AutoWishes.setBlocked(this, h.person, !blocked);
+          toast(blocked ? "Θα παίρνει αυτόματο SMS" : "Δεν θα παίρνει αυτόματο SMS");
+          break;
         default:
           android.content.ClipboardManager cm = (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
           if (cm != null) cm.setPrimaryClip(android.content.ClipData.newPlainText("Ευχές", msg));
@@ -1221,6 +1228,11 @@ public class MainActivity extends Activity {
       ct.addView(divider());
       ct.addView(settingRow("Σε ποιους στέλνει αυτόματα", AutoWishes.modeLabel(prefs.getString("autoSmsMode", AutoWishes.MODE_BOTH)), () -> chooseAutoMode(null)));
       ct.addView(divider());
+      ct.addView(toggle("Ερώτηση πριν την αποστολή", "Ειδοποίηση με [Αποστολή τώρα] / [Όχι σήμερα] — αλλιώς στέλνονται μόνα τους σε 1 ώρα", "autoSmsConfirm", true, null));
+      ct.addView(divider());
+      int nb = AutoWishes.blocked(this).size();
+      ct.addView(settingRow("Ποιες επαφές παίρνουν SMS", nb == 0 ? "Όλες (καμία εξαίρεση)" : nb + (nb == 1 ? " επαφή εξαιρείται" : " επαφές εξαιρούνται"), this::chooseSmsContacts));
+      ct.addView(divider());
       ct.addView(settingRow("Ιστορικό αυτόματων SMS", "Τι στάλθηκε και πότε", () ->
           new AlertDialog.Builder(this).setTitle("Ιστορικό αποστολών").setMessage(AutoWishes.history(this)).setPositiveButton("OK", null).show()));
     }
@@ -1325,6 +1337,37 @@ public class MainActivity extends Activity {
           d.dismiss();
           if (then != null) then.run(); else render();
         }).setNegativeButton("Άκυρο", null).show();
+  }
+
+  /** Λίστα επαφών με γιορτή/γενέθλια: τσεκαρισμένη = παίρνει αυτόματο SMS. */
+  void chooseSmsContacts() {
+    List<ContactSync.Person> ppl = new ArrayList<>();
+    for (ContactSync.Person p : ContactSync.load(this)) if (p.phone != null) ppl.add(p);
+    if (ppl.isEmpty()) { toast("Δεν βρέθηκαν επαφές με γιορτή/γενέθλια και τηλέφωνο"); return; }
+    String[] names = new String[ppl.size()];
+    boolean[] checked = new boolean[ppl.size()];
+    Set<String> block = AutoWishes.blocked(this);
+    for (int i = 0; i < ppl.size(); i++) {
+      ContactSync.Person p = ppl.get(i);
+      String what = p.canon.isEmpty() ? "γενέθλια" : TextUtils.join("/", p.canon);
+      names[i] = p.displayName + "  ·  " + what;
+      checked[i] = !block.contains(AutoWishes.blockKey(p));
+    }
+    AlertDialog dlg = new AlertDialog.Builder(this).setTitle("✅ = παίρνει αυτόματο SMS")
+        .setMultiChoiceItems(names, checked, (d, w, on) -> checked[w] = on)
+        .setNeutralButton("Όλοι / Κανένας", null)
+        .setNegativeButton("Άκυρο", null)
+        .setPositiveButton("Αποθήκευση", (d, w) -> {
+          for (int i = 0; i < ppl.size(); i++) AutoWishes.setBlocked(this, ppl.get(i), !checked[i]);
+          toast("Αποθηκεύτηκε ✓");
+          render();
+        }).create();
+    dlg.setOnShowListener(x -> dlg.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener(v -> {
+      boolean any = false;
+      for (boolean c : checked) any |= c;
+      for (int i = 0; i < checked.length; i++) { checked[i] = !any; dlg.getListView().setItemChecked(i, !any); }
+    }));
+    dlg.show();
   }
 
   void enableAutoSms() {

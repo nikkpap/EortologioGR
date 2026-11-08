@@ -1,1 +1,4 @@
-<resources><string name="app_name">Εορτολόγιο+</string></resources>
+<resources>
+    <string name="app_name">Εορτολόγιο+</string>
+    <string name="widget_desc">Ποιοι γιορτάζουν σήμερα και ποιες επαφές σου</string>
+</resources>

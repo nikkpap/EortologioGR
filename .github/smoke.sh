@@ -26,6 +26,10 @@ adb shell run-as gr.eortologio.plus cp /data/local/tmp/settings.xml shared_prefs
 adb shell run-as gr.eortologio.plus cat shared_prefs/settings.xml || true
 adb shell am broadcast -n gr.eortologio.plus/.ReminderReceiver -a gr.eortologio.plus.DAILY || true
 sleep 4
+adb shell dumpsys notification --noredact | grep -q "pkg=gr.eortologio.plus.*id=43" && echo "CONFIRM_NOTIF_OK" || echo "CONFIRM_NOTIF_MISSING"
+adb logcat -d | grep -q "EortologioAutoSms.*sent to" && echo "SENT_TOO_EARLY" || echo "NOT_SENT_BEFORE_CONFIRM_OK"
+adb shell am broadcast -n gr.eortologio.plus/.ReminderReceiver -a gr.eortologio.plus.AUTOSMS_SEND || true
+sleep 4
 adb shell dumpsys notification --noredact | grep -A3 "pkg=gr.eortologio.plus" | head -20 || true
 adb shell am broadcast -n gr.eortologio.plus/.ReminderReceiver -a gr.eortologio.plus.SNOOZE --ei minutes 1 || true
 sleep 3

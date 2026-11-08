@@ -1,0 +1,22 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/w_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="14dp"
+    android:background="@drawable/widget_bg">
+    <TextView android:id="@+id/w_date" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:textColor="#DDFFFFFF" android:textSize="12sp" android:textStyle="bold" android:maxLines="1" android:text="ΕΟΡΤΟΛΟΓΙΟ +"/>
+    <TextView android:id="@+id/w_title" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:textColor="#FFFFFF" android:textSize="15sp" android:textStyle="bold" android:layout_marginTop="2dp"
+        android:maxLines="1" android:text="🎉 Σήμερα γιορτάζουν"/>
+    <TextView android:id="@+id/w_names" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:textColor="#FFFFFF" android:textSize="14sp" android:layout_marginTop="4dp"
+        android:maxLines="3" android:ellipsize="end" android:text="…"/>
+    <TextView android:id="@+id/w_contacts" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:textColor="#FFFDE68A" android:textSize="13sp" android:textStyle="bold" android:layout_marginTop="6dp"
+        android:maxLines="2" android:ellipsize="end" android:visibility="gone"/>
+    <TextView android:id="@+id/w_next" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:textColor="#CCFFFFFF" android:textSize="12sp" android:layout_marginTop="6dp"
+        android:maxLines="1" android:ellipsize="end"/>
+</LinearLayout>

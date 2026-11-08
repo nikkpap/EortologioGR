@@ -36,18 +36,72 @@ final class AutoWishes {
     return "Γιορτές και γενέθλια";
   }
 
+  // ---------- Εξαιρέσεις: επαφές που ΔΕΝ παίρνουν ποτέ αυτόματο SMS ----------
+  static Set<String> blocked(Context c) {
+    return new HashSet<>(ReminderReceiver.sp(c).getStringSet("smsBlocked", Collections.emptySet()));
+  }
+
+  static boolean isBlocked(Context c, ContactSync.Person p) { return blocked(c).contains(blockKey(p)); }
+
+  /** Κλειδί επαφής: ο αριθμός (σταθερός ακόμα κι αν αλλάξει το id της επαφής), αλλιώς το όνομα. */
+  static String blockKey(ContactSync.Person p) {
+    return p.phone != null ? Wishes.intl(p.phone) : "name:" + p.displayName;
+  }
+
+  static void setBlocked(Context c, ContactSync.Person p, boolean block) {
+    Set<String> b = blocked(c);
+    if (block) b.add(blockKey(p)); else b.remove(blockKey(p));
+    ReminderReceiver.sp(c).edit().putStringSet("smsBlocked", b).apply();
+  }
+
+  static boolean confirmFirst(Context c) { return ReminderReceiver.sp(c).getBoolean("autoSmsConfirm", true); }
+
+  private static Set<String> doneToday(SharedPreferences sp, String key) {
+    Set<String> done = new HashSet<>();
+    if (key.equals(sp.getString("autoSmsDay", ""))) done.addAll(sp.getStringSet("autoSmsDone", Collections.emptySet()));
+    return done;
+  }
+
+  static boolean cancelledToday(Context c) {
+    return LocalDate.now().toString().equals(ReminderReceiver.sp(c).getString("autoSmsCancelDay", ""));
+  }
+
+  static void cancelToday(Context c) {
+    ReminderReceiver.sp(c).edit().putString("autoSmsCancelDay", LocalDate.now().toString()).apply();
+  }
+
+  /** Ποιοι θα πάρουν σήμερα αυτόματο SMS (μετά από φίλτρα: τύπος, εξαιρέσεις, ήδη σταλμένα, όριο). */
+  static List<ContactSync.Hit> pending(Context ctx) {
+    List<ContactSync.Hit> out = new ArrayList<>();
+    if (!enabled(ctx) || !ContactSync.enabled(ctx)) return out;
+    SharedPreferences sp = ReminderReceiver.sp(ctx);
+    String mode = sp.getString("autoSmsMode", MODE_BOTH);
+    Set<String> done = doneToday(sp, LocalDate.now().toString());
+    Set<String> block = blocked(ctx);
+    Set<String> seen = new HashSet<>(done);
+    ContactSync.invalidate();
+    for (ContactSync.Hit h : ContactSync.hits(ctx, new EventStore(ctx), LocalDate.now(), 0)) {
+      if (h.birthday && MODE_NAMEDAY.equals(mode)) continue;
+      if (!h.birthday && MODE_BIRTHDAY.equals(mode)) continue;
+      String num = h.person.phone;
+      if (num == null || num.replaceAll("\\D", "").length() < 8) continue;
+      if (block.contains(blockKey(h.person))) continue;
+      if (!seen.add(Wishes.intl(num))) continue;
+      out.add(h);
+      if (done.size() + out.size() >= DAILY_LIMIT) break;
+    }
+    return out;
+  }
+
   /** Στέλνει τις σημερινές ευχές. Επιστρέφει τα ονόματα όσων στάλθηκαν τώρα. */
   static synchronized List<String> sendToday(Context ctx) {
     List<String> sentNow = new ArrayList<>();
-    if (!enabled(ctx) || !ContactSync.enabled(ctx)) return sentNow;
+    if (!enabled(ctx) || !ContactSync.enabled(ctx) || cancelledToday(ctx)) return sentNow;
     SharedPreferences sp = ReminderReceiver.sp(ctx);
-    String mode = sp.getString("autoSmsMode", MODE_BOTH);
     LocalDate today = LocalDate.now();
     String key = today.toString();
-
     // Ποιοι αριθμοί πήραν ήδη SMS σήμερα (για να μη σταλεί δεύτερο, π.χ. μετά από επανεκκίνηση)
-    Set<String> done = new HashSet<>();
-    if (key.equals(sp.getString("autoSmsDay", ""))) done.addAll(sp.getStringSet("autoSmsDone", Collections.emptySet()));
+    Set<String> done = doneToday(sp, key);
 
     SmsManager sms;
     try {
@@ -55,16 +109,12 @@ final class AutoWishes {
     } catch (Exception e) { Log.w(TAG, "no SmsManager", e); return sentNow; }
     if (sms == null) return sentNow;
 
-    ContactSync.invalidate();
-    List<ContactSync.Hit> hits = ContactSync.hits(ctx, new EventStore(ctx), today, 0);
+    List<ContactSync.Hit> hits = pending(ctx);
     List<String> log = new ArrayList<>(Arrays.asList(sp.getString("autoSmsLog", "").split("\n")));
     log.removeIf(String::isEmpty);
     for (ContactSync.Hit h : hits) {
       if (done.size() >= DAILY_LIMIT) { Log.w(TAG, "daily limit reached"); break; }
-      if (h.birthday && MODE_NAMEDAY.equals(mode)) continue;
-      if (!h.birthday && MODE_BIRTHDAY.equals(mode)) continue;
       String num = h.person.phone;
-      if (num == null || num.replaceAll("\\D", "").length() < 8) continue;
       String norm = Wishes.intl(num);
       if (!done.add(norm)) continue; // ήδη στάλθηκε σήμερα (ή διπλή επαφή με ίδιο αριθμό)
       String msg = Wishes.message(ctx, h);
