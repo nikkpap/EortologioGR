@@ -42,7 +42,7 @@ final class Backup {
 
   static void write(Context ctx, Uri uri) throws Exception {
     try (OutputStream os = ctx.getContentResolver().openOutputStream(uri, "wt")) {
-      if (os == null) throw new IOException("Δεν άνοιξε το αρχείο");
+      if (os == null) throw new IOException(T.t("Δεν άνοιξε το αρχείο"));
       os.write(export(ctx).getBytes(StandardCharsets.UTF_8));
     }
   }
@@ -55,7 +55,7 @@ final class Backup {
       while ((l = r.readLine()) != null) sb.append(l).append('\n');
     }
     JSONObject root = new JSONObject(sb.toString());
-    if (!"EortologioGR".equals(root.optString("app"))) throw new IOException("Δεν είναι αντίγραφο του Εορτολόγιο+");
+    if (!"EortologioGR".equals(root.optString("app"))) throw new IOException(T.t("Δεν είναι αντίγραφο του Εορτολόγιο+"));
     JSONArray personal = root.optJSONArray("personal");
     if (personal != null) new EventStore(ctx).restoreRaw(personal.toString());
     JSONObject st = root.optJSONObject("settings");

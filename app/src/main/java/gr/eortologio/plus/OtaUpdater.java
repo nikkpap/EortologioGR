@@ -45,20 +45,20 @@ final class OtaUpdater {
         final String url = apkUrl, page = j.optString("html_url"),
             notes = j.optString("body").replaceAll("(?m)^(Co-Authored-By|Claude-Session|Signed-off-by):.*$|^.*claude\\.ai/code.*$", "").trim();
         if (compare(tag, mine) <= 0) {
-          if (manual) ui(a, () -> new AlertDialog.Builder(a).setTitle("Είσαι ενημερωμένος ✓")
-              .setMessage("Έχεις την τελευταία έκδοση (" + mine + ").").setPositiveButton("OK", null).show());
+          if (manual) ui(a, () -> new AlertDialog.Builder(a).setTitle(T.t("Είσαι ενημερωμένος ✓"))
+              .setMessage(T.t("Έχεις την τελευταία έκδοση (") + mine + ").").setPositiveButton("OK", null).show());
           return;
         }
-        ui(a, () -> new AlertDialog.Builder(a).setTitle("Νέα έκδοση " + tag)
-            .setMessage("Εγκατεστημένη: " + mine + "\n\n" + (notes.length() > 600 ? notes.substring(0, 600) + "…" : notes))
-            .setNegativeButton("Αργότερα", null)
+        ui(a, () -> new AlertDialog.Builder(a).setTitle(T.t("Νέα έκδοση ") + tag)
+            .setMessage(T.t("Εγκατεστημένη: ") + mine + "\n\n" + (notes.length() > 600 ? notes.substring(0, 600) + "…" : notes))
+            .setNegativeButton(T.t("Αργότερα"), null)
             .setNeutralButton("GitHub", (d, w) -> a.startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(page))))
-            .setPositiveButton(url != null ? "Ενημέρωση" : "Άνοιγμα", (d, w) -> {
+            .setPositiveButton(url != null ? T.t("Ενημέρωση") : T.t("Άνοιγμα"), (d, w) -> {
               if (url != null) download(a, url); else a.startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(page)));
             }).show());
       } catch (Exception e) {
-        if (manual) ui(a, () -> new AlertDialog.Builder(a).setTitle("Έλεγχος ενημέρωσης")
-            .setMessage("Δεν ήταν δυνατός ο έλεγχος. Έλεγξε τη σύνδεση στο internet.\n(" + e.getMessage() + ")")
+        if (manual) ui(a, () -> new AlertDialog.Builder(a).setTitle(T.t("Έλεγχος ενημέρωσης"))
+            .setMessage(T.t("Δεν ήταν δυνατός ο έλεγχος. Έλεγξε τη σύνδεση στο internet.\n(") + e.getMessage() + ")")
             .setPositiveButton("OK", null).show());
       } finally { running = false; }
     }).start();
@@ -66,22 +66,22 @@ final class OtaUpdater {
 
   private static void download(Activity a, String url) {
     if (Build.VERSION.SDK_INT >= 26 && !a.getPackageManager().canRequestPackageInstalls()) {
-      new AlertDialog.Builder(a).setTitle("Μία φορά μόνο")
-          .setMessage("Για να εγκαθίστανται οι ενημερώσεις, επίτρεψε στο Εορτολόγιο+ την «Εγκατάσταση άγνωστων εφαρμογών» και πάτα ξανά «Ενημέρωση».")
-          .setPositiveButton("Ρυθμίσεις", (d, w) -> a.startActivity(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:" + a.getPackageName()))))
-          .setNegativeButton("Άκυρο", null).show();
+      new AlertDialog.Builder(a).setTitle(T.t("Μία φορά μόνο"))
+          .setMessage(T.t("Για να εγκαθίστανται οι ενημερώσεις, επίτρεψε στο Εορτολόγιο+ την «Εγκατάσταση άγνωστων εφαρμογών» και πάτα ξανά «Ενημέρωση»."))
+          .setPositiveButton(T.t("Ρυθμίσεις"), (d, w) -> a.startActivity(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:" + a.getPackageName()))))
+          .setNegativeButton(T.t("Άκυρο"), null).show();
       return;
     }
     ProgressBar bar = new ProgressBar(a, null, android.R.attr.progressBarStyleHorizontal);
     bar.setMax(100);
     TextView t = new TextView(a);
-    t.setText("Λήψη…");
+    t.setText(T.t("Λήψη…"));
     LinearLayout l = new LinearLayout(a);
     l.setOrientation(LinearLayout.VERTICAL);
     int pad = (int) (24 * a.getResources().getDisplayMetrics().density);
     l.setPadding(pad, pad / 2, pad, 0);
     l.addView(t); l.addView(bar);
-    AlertDialog dlg = new AlertDialog.Builder(a).setTitle("Ενημέρωση").setView(l).setCancelable(false).show();
+    AlertDialog dlg = new AlertDialog.Builder(a).setTitle(T.t("Ενημέρωση")).setView(l).setCancelable(false).show();
     new Thread(() -> {
       File out = new File(a.getCacheDir(), "eortologio-update.apk");
       try {
@@ -94,7 +94,7 @@ final class OtaUpdater {
             os.write(buf, 0, n);
             done += n;
             int pct = total > 0 ? (int) (done * 100 / total) : 0;
-            if (pct != last) { last = pct; final int p = pct; ui(a, () -> { bar.setProgress(p); t.setText("Λήψη… " + p + "%"); }); }
+            if (pct != last) { last = pct; final int p = pct; ui(a, () -> { bar.setProgress(p); t.setText(T.t("Λήψη… ") + p + "%"); }); }
           }
         }
         ui(a, () -> {
@@ -106,7 +106,7 @@ final class OtaUpdater {
         });
       } catch (Exception e) {
         out.delete();
-        ui(a, () -> { dlg.dismiss(); new AlertDialog.Builder(a).setMessage("Η λήψη απέτυχε: " + e.getMessage()).setPositiveButton("OK", null).show(); });
+        ui(a, () -> { dlg.dismiss(); new AlertDialog.Builder(a).setMessage(T.t("Η λήψη απέτυχε: ") + e.getMessage()).setPositiveButton("OK", null).show(); });
       }
     }).start();
   }

@@ -31,9 +31,9 @@ final class AutoWishes {
   }
 
   static String modeLabel(String m) {
-    if (MODE_NAMEDAY.equals(m)) return "Μόνο γιορτές";
-    if (MODE_BIRTHDAY.equals(m)) return "Μόνο γενέθλια";
-    return "Γιορτές και γενέθλια";
+    if (MODE_NAMEDAY.equals(m)) return T.t("Μόνο γιορτές");
+    if (MODE_BIRTHDAY.equals(m)) return T.t("Μόνο γενέθλια");
+    return T.t("Γιορτές και γενέθλια");
   }
 
   // ---------- Εξαιρέσεις: επαφές που ΔΕΝ παίρνουν ποτέ αυτόματο SMS ----------
@@ -130,7 +130,7 @@ final class AutoWishes {
         ok = false;
         Log.w(TAG, "send failed " + h.person.displayName, e);
       }
-      log.add(0, key + " · " + (ok ? "✓ " : "✗ ") + h.person.displayName + " (" + (h.birthday ? "γενέθλια" : "γιορτή") + ")");
+      log.add(0, key + " · " + (ok ? "✓ " : "✗ ") + h.person.displayName + " (" + (h.birthday ? T.t("γενέθλια") : T.t("γιορτή")) + ")");
     }
     while (log.size() > LOG_MAX) log.remove(log.size() - 1);
     sp.edit().putString("autoSmsDay", key).putStringSet("autoSmsDone", done)
@@ -140,6 +140,6 @@ final class AutoWishes {
 
   static String history(Context c) {
     String h = ReminderReceiver.sp(c).getString("autoSmsLog", "");
-    return h.isEmpty() ? "Δεν έχουν σταλεί ακόμα αυτόματες ευχές." : h;
+    return h.isEmpty() ? T.t("Δεν έχουν σταλεί ακόμα αυτόματες ευχές.") : h;
   }
 }

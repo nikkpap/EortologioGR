@@ -70,6 +70,7 @@ public class ReminderReceiver extends BroadcastReceiver {
   }
 
   @Override public void onReceive(Context ctx, Intent intent) {
+    T.init(ctx);
     String action = intent.getAction() == null ? ACTION_DAILY : intent.getAction();
     PendingResult pr = goAsync();
     Context app = ctx.getApplicationContext();
@@ -135,8 +136,8 @@ public class ReminderReceiver extends BroadcastReceiver {
   static void ensureChannel(Context ctx) {
     NotificationManager nm = (NotificationManager) ctx.getSystemService(Context.NOTIFICATION_SERVICE);
     if (nm != null && nm.getNotificationChannel(CHANNEL) == null) {
-      NotificationChannel ch = new NotificationChannel(CHANNEL, "Σήμερα γιορτάζουν", NotificationManager.IMPORTANCE_DEFAULT);
-      ch.setDescription("Ημερήσια ειδοποίηση για γιορτές, γενέθλια επαφών και προσωπικές ημερομηνίες");
+      NotificationChannel ch = new NotificationChannel(CHANNEL, T.t("Σήμερα γιορτάζουν"), NotificationManager.IMPORTANCE_DEFAULT);
+      ch.setDescription(T.t("Ημερήσια ειδοποίηση για γιορτές, γενέθλια επαφών και προσωπικές ημερομηνίες"));
       nm.createNotificationChannel(ch);
     }
   }
@@ -170,30 +171,30 @@ public class ReminderReceiver extends BroadcastReceiver {
       long d = EventStore.daysUntil(today, n);
       if (d == 0) {
         int y = e.yearsAt(n);
-        lines.add(0, "⭐ " + e.title + (y > 0 ? " (" + y + " χρόνια)" : ""));
-      } else if (lead > 0 && d == lead) lines.add("⏳ Σε " + d + (d == 1 ? " ημέρα: " : " ημέρες: ") + e.title);
+        lines.add(0, "⭐ " + e.title + (y > 0 ? " (" + y + T.t(" χρόνια)") : ""));
+      } else if (lead > 0 && d == lead) lines.add(T.t("⏳ Σε ") + d + (d == 1 ? T.t(" ημέρα: ") : T.t(" ημέρες: ")) + e.title);
     }
 
     if (autoSent != null && !autoSent.isEmpty())
-      lines.add(0, "✉️ Στάλθηκαν αυτόματα ευχές με SMS σε: " + String.join(", ", autoSent));
+      lines.add(0, T.t("✉️ Στάλθηκαν αυτόματα ευχές με SMS σε: ") + String.join(", ", autoSent));
     boolean show = !lines.isEmpty() || !people.isEmpty() || (names && !onlyContacts && !todayNames.isEmpty());
     if (!show) return false;
 
     StringBuilder big = new StringBuilder();
-    if (!people.isEmpty()) big.append("👥 Από τις επαφές σου: ").append(String.join(", ", people)).append('\n');
-    if (names && !todayNames.isEmpty()) big.append("🎉 Γιορτάζουν: ").append(String.join(", ", todayNames)).append('\n');
+    if (!people.isEmpty()) big.append(T.t("👥 Από τις επαφές σου: ")).append(String.join(", ", people)).append('\n');
+    if (names && !todayNames.isEmpty()) big.append(T.t("🎉 Γιορτάζουν: ")).append(String.join(", ", todayNames)).append('\n');
     for (String l : lines) big.append(l).append('\n');
 
     String title;
     String text;
     if (!people.isEmpty()) {
-      title = people.size() == 1 ? "Γιορτάζει ο/η " + hits.get(0).person.callName() + " 🎉" : people.size() + " επαφές σου γιορτάζουν σήμερα 🎉";
+      title = people.size() == 1 ? T.t("Γιορτάζει ο/η ") + hits.get(0).person.callName() + " 🎉" : people.size() + T.t(" επαφές σου γιορτάζουν σήμερα 🎉");
       text = String.join(", ", people);
     } else if (names && !todayNames.isEmpty()) {
-      title = "Σήμερα γιορτάζουν";
+      title = T.t("Σήμερα γιορτάζουν");
       text = String.join(", ", todayNames);
     } else {
-      title = "Εορτολόγιο+";
+      title = T.t("Εορτολόγιο+");
       text = lines.get(0);
     }
 
@@ -213,7 +214,7 @@ public class ReminderReceiver extends BroadcastReceiver {
         .setCategory(Notification.CATEGORY_REMINDER)
         .setContentIntent(pi);
     if (!people.isEmpty())
-      b.addAction(new Notification.Action.Builder(null, "💬 Ευχές", pi).build());
+      b.addAction(new Notification.Action.Builder(null, T.t("💬 Ευχές"), pi).build());
     b.addAction(new Notification.Action.Builder(null, "⏰ " + label(s1), snoozeIntent(ctx, s1, 1)).build());
     b.addAction(new Notification.Action.Builder(null, "⏰ " + label(s2), snoozeIntent(ctx, s2, 2)).build());
     nm.notify(NOTIF_ID, b.build());
@@ -242,12 +243,12 @@ public class ReminderReceiver extends BroadcastReceiver {
     String who = String.join(", ", names);
     Notification.Builder b = new Notification.Builder(ctx, CHANNEL)
         .setSmallIcon(R.drawable.ic_event).setColor(0xff6657dd)
-        .setContentTitle("✉️ Ευχές με SMS σε " + list.size() + (list.size() == 1 ? " άτομο" : " άτομα"))
+        .setContentTitle(T.t("✉️ Ευχές με SMS σε ") + list.size() + (list.size() == 1 ? T.t(" άτομο") : T.t(" άτομα")))
         .setContentText(who)
-        .setStyle(new Notification.BigTextStyle().bigText(who + "\n\nΑν δεν πατήσεις τίποτα, θα σταλούν αυτόματα σε " + CONFIRM_MINUTES + " λεπτά."))
+        .setStyle(new Notification.BigTextStyle().bigText(who + T.t("\n\nΑν δεν πατήσεις τίποτα, θα σταλούν αυτόματα σε ") + CONFIRM_MINUTES + T.t(" λεπτά.")))
         .setContentIntent(open).setAutoCancel(false).setCategory(Notification.CATEGORY_REMINDER)
-        .addAction(new Notification.Action.Builder(null, "✅ Αποστολή τώρα", sendNow).build())
-        .addAction(new Notification.Action.Builder(null, "✖ Όχι σήμερα", cancel).build());
+        .addAction(new Notification.Action.Builder(null, T.t("✅ Αποστολή τώρα"), sendNow).build())
+        .addAction(new Notification.Action.Builder(null, T.t("✖ Όχι σήμερα"), cancel).build());
     nm.notify(NOTIF_SMS, b.build());
   }
 
@@ -264,7 +265,7 @@ public class ReminderReceiver extends BroadcastReceiver {
     ensureChannel(ctx);
     String who = String.join(", ", sent);
     nm.notify(NOTIF_SMS, new Notification.Builder(ctx, CHANNEL).setSmallIcon(R.drawable.ic_event).setColor(0xff6657dd)
-        .setContentTitle("✉️ Στάλθηκαν ευχές σε " + sent.size() + (sent.size() == 1 ? " άτομο" : " άτομα"))
+        .setContentTitle(T.t("✉️ Στάλθηκαν ευχές σε ") + sent.size() + (sent.size() == 1 ? T.t(" άτομο") : T.t(" άτομα")))
         .setContentText(who).setStyle(new Notification.BigTextStyle().bigText(who)).setAutoCancel(true).build());
   }
 
@@ -279,7 +280,7 @@ public class ReminderReceiver extends BroadcastReceiver {
 
   static String label(int minutes) {
     if (minutes < 60) return minutes + "′";
-    if (minutes % 60 == 0) return (minutes / 60) + (minutes == 60 ? " ώρα" : " ώρες");
-    return (minutes / 60) + "ω " + (minutes % 60) + "′";
+    if (minutes % 60 == 0) return (minutes / 60) + (minutes == 60 ? T.t(" ώρα") : T.t(" ώρες"));
+    return (minutes / 60) + T.t("ω ") + (minutes % 60) + "′";
   }
 }

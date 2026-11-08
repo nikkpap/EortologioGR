@@ -139,6 +139,12 @@ final class Names {
     return new ArrayList<>(keys);
   }
 
+  /** «Γεώργιος» → «Georgios» (για εμφάνιση στα αγγλικά). */
+  static String latinPretty(String canon) {
+    String l = latin(norm(canon)).get(0);
+    return l.isEmpty() ? canon : Character.toUpperCase(l.charAt(0)) + l.substring(1);
+  }
+
   static boolean isGreek(String s) {
     for (int i = 0; i < s.length(); i++) {
       char ch = s.charAt(i);

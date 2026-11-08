@@ -30,42 +30,42 @@ final class Church {
     // --- Περίοδοι κατάλυσης (αρτύσιμο όλη την εβδομάδα) ---
     if (between(d, LocalDate.of(d.getYear(), 12, 25), LocalDate.of(d.getYear(), 12, 31))
         || between(d, LocalDate.of(d.getYear(), 1, 1), LocalDate.of(d.getYear(), 1, 4)))
-      return new FastInfo(Fast.FREE, "Κατάλυση εις πάντα (Δωδεκαήμερο)");
-    if (k >= 0 && k <= 6) return new FastInfo(Fast.FREE, "Κατάλυση εις πάντα (Διακαινήσιμος)");
-    if (k >= 49 && k <= 55) return new FastInfo(Fast.FREE, "Κατάλυση εις πάντα (εβδομάδα Πεντηκοστής)");
-    if (k >= -70 && k <= -64) return new FastInfo(Fast.FREE, "Κατάλυση εις πάντα (Τελώνου και Φαρισαίου)");
+      return new FastInfo(Fast.FREE, T.t("Κατάλυση εις πάντα (Δωδεκαήμερο)"));
+    if (k >= 0 && k <= 6) return new FastInfo(Fast.FREE, T.t("Κατάλυση εις πάντα (Διακαινήσιμος)"));
+    if (k >= 49 && k <= 55) return new FastInfo(Fast.FREE, T.t("Κατάλυση εις πάντα (εβδομάδα Πεντηκοστής)"));
+    if (k >= -70 && k <= -64) return new FastInfo(Fast.FREE, T.t("Κατάλυση εις πάντα (Τελώνου και Φαρισαίου)"));
 
     // --- Αυστηρές μονοήμερες νηστείες ---
-    if (md.equals(MonthDay.of(1, 5))) return new FastInfo(Fast.STRICT, "Αυστηρή νηστεία (παραμονή Θεοφανείων)");
-    if (md.equals(MonthDay.of(8, 29))) return new FastInfo(Fast.STRICT, "Αυστηρή νηστεία (Αποτομή Τιμίου Προδρόμου)");
-    if (md.equals(MonthDay.of(9, 14))) return new FastInfo(Fast.STRICT, "Αυστηρή νηστεία (Ύψωση Τιμίου Σταυρού)");
+    if (md.equals(MonthDay.of(1, 5))) return new FastInfo(Fast.STRICT, T.t("Αυστηρή νηστεία (παραμονή Θεοφανείων)"));
+    if (md.equals(MonthDay.of(8, 29))) return new FastInfo(Fast.STRICT, T.t("Αυστηρή νηστεία (Αποτομή Τιμίου Προδρόμου)"));
+    if (md.equals(MonthDay.of(9, 14))) return new FastInfo(Fast.STRICT, T.t("Αυστηρή νηστεία (Ύψωση Τιμίου Σταυρού)"));
 
     // --- Μεγάλη Σαρακοστή & Μεγάλη Εβδομάδα ---
-    if (k >= -55 && k <= -49) return new FastInfo(Fast.DAIRY, "Τυροφάγου: χωρίς κρέας (γαλακτοκομικά, αυγά, ψάρι επιτρέπονται)");
+    if (k >= -55 && k <= -49) return new FastInfo(Fast.DAIRY, T.t("Τυροφάγου: χωρίς κρέας (γαλακτοκομικά, αυγά, ψάρι επιτρέπονται)"));
     if (k >= -48 && k <= -1) {
-      if (k == -7 || md.equals(MonthDay.of(3, 25))) return new FastInfo(Fast.FISH, "Μ. Σαρακοστή · κατάλυση ιχθύος");
-      if (k == -2) return new FastInfo(Fast.STRICT, "Μεγάλη Παρασκευή · αυστηρή νηστεία");
-      if (k >= -6) return new FastInfo(Fast.STRICT, "Μεγάλη Εβδομάδα · αυστηρή νηστεία");
-      return new FastInfo(Fast.FAST, "Μεγάλη Σαρακοστή · νηστεία");
+      if (k == -7 || md.equals(MonthDay.of(3, 25))) return new FastInfo(Fast.FISH, T.t("Μ. Σαρακοστή · κατάλυση ιχθύος"));
+      if (k == -2) return new FastInfo(Fast.STRICT, T.t("Μεγάλη Παρασκευή · αυστηρή νηστεία"));
+      if (k >= -6) return new FastInfo(Fast.STRICT, T.t("Μεγάλη Εβδομάδα · αυστηρή νηστεία"));
+      return new FastInfo(Fast.FAST, T.t("Μεγάλη Σαρακοστή · νηστεία"));
     }
 
     // --- Των Αγίων Αποστόλων: από Δευτέρα μετά των Αγίων Πάντων έως 28/6 ---
     LocalDate apStart = e.plusDays(57), apEnd = LocalDate.of(d.getYear(), 6, 28);
     if (!apStart.isAfter(apEnd) && between(d, apStart, apEnd))
-      return wedFri ? new FastInfo(Fast.FAST, "Νηστεία Αγίων Αποστόλων") : new FastInfo(Fast.FISH, "Νηστεία Αγίων Αποστόλων · κατάλυση ιχθύος");
+      return wedFri ? new FastInfo(Fast.FAST, T.t("Νηστεία Αγίων Αποστόλων")) : new FastInfo(Fast.FISH, T.t("Νηστεία Αγίων Αποστόλων · κατάλυση ιχθύος"));
 
     // --- Δεκαπενταύγουστος ---
     if (between(d, LocalDate.of(d.getYear(), 8, 1), LocalDate.of(d.getYear(), 8, 14))) {
-      if (md.equals(MonthDay.of(8, 6))) return new FastInfo(Fast.FISH, "Μεταμόρφωση · κατάλυση ιχθύος");
-      return new FastInfo(Fast.FAST, "Νηστεία Δεκαπενταύγουστου");
+      if (md.equals(MonthDay.of(8, 6))) return new FastInfo(Fast.FISH, T.t("Μεταμόρφωση · κατάλυση ιχθύος"));
+      return new FastInfo(Fast.FAST, T.t("Νηστεία Δεκαπενταύγουστου"));
     }
 
     // --- Σαρανταήμερο Χριστουγέννων ---
     if (between(d, LocalDate.of(d.getYear(), 11, 15), LocalDate.of(d.getYear(), 12, 24))) {
       boolean fishOk = !d.isAfter(LocalDate.of(d.getYear(), 12, 17)) && !wedFri;
-      if (md.equals(MonthDay.of(11, 21))) return new FastInfo(Fast.FISH, "Εισόδια · κατάλυση ιχθύος");
-      return fishOk ? new FastInfo(Fast.FISH, "Νηστεία Χριστουγέννων · κατάλυση ιχθύος")
-          : new FastInfo(Fast.FAST, "Νηστεία Χριστουγέννων");
+      if (md.equals(MonthDay.of(11, 21))) return new FastInfo(Fast.FISH, T.t("Εισόδια · κατάλυση ιχθύος"));
+      return fishOk ? new FastInfo(Fast.FISH, T.t("Νηστεία Χριστουγέννων · κατάλυση ιχθύος"))
+          : new FastInfo(Fast.FAST, T.t("Νηστεία Χριστουγέννων"));
     }
 
     // --- Τετάρτη & Παρασκευή ---
@@ -73,8 +73,8 @@ final class Church {
       // μεγάλες γιορτές σε Τετάρτη/Παρασκευή: κατάλυση ιχθύος
       if (md.equals(MonthDay.of(2, 2)) || md.equals(MonthDay.of(3, 25)) || md.equals(MonthDay.of(6, 24))
           || md.equals(MonthDay.of(6, 29)) || md.equals(MonthDay.of(8, 15)) || md.equals(MonthDay.of(9, 8)) || k == 39)
-        return new FastInfo(Fast.FISH, "Τετάρτη/Παρασκευή εορτής · κατάλυση ιχθύος");
-      return new FastInfo(Fast.FAST, dow == DayOfWeek.WEDNESDAY ? "Τετάρτη · νηστεία" : "Παρασκευή · νηστεία");
+        return new FastInfo(Fast.FISH, T.t("Τετάρτη/Παρασκευή εορτής · κατάλυση ιχθύος"));
+      return new FastInfo(Fast.FAST, dow == DayOfWeek.WEDNESDAY ? T.t("Τετάρτη · νηστεία") : T.t("Παρασκευή · νηστεία"));
     }
     return new FastInfo(Fast.NONE, "");
   }

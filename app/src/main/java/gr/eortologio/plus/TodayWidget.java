@@ -36,18 +36,19 @@ public class TodayWidget extends AppWidgetProvider {
     EventStore store = new EventStore(ctx);
     LocalDate today = LocalDate.now();
     RemoteViews v = new RemoteViews(ctx.getPackageName(), R.layout.widget_today);
-    String d = today.format(DateTimeFormatter.ofPattern("EEEE d MMMM", EL));
-    v.setTextViewText(R.id.w_date, ("ΕΟΡΤΟΛΟΓΙΟ+ · " + d).toUpperCase(EL));
+    T.init(ctx);
+    String d = today.format(DateTimeFormatter.ofPattern(T.en() ? "EEEE, MMMM d" : "EEEE d MMMM", T.locale()));
+    v.setTextViewText(R.id.w_date, (T.t("ΕΟΡΤΟΛΟΓΙΟ+ · ") + d).toUpperCase(T.locale()));
 
     List<String> names = new ArrayList<>(), holidays = new ArrayList<>();
     for (EventStore.Event e : store.on(today)) {
       if (e.isNameDay()) { if (!names.contains(e.canon)) names.add(e.canon); }
       else if (!e.personal) holidays.add(e.title);
     }
-    v.setTextViewText(R.id.w_title, names.isEmpty() ? "📅 Σήμερα" : "🎉 Σήμερα γιορτάζουν");
+    v.setTextViewText(R.id.w_title, names.isEmpty() ? T.t("📅 Σήμερα") : T.t("🎉 Σήμερα γιορτάζουν"));
     StringBuilder body = new StringBuilder(String.join(", ", names));
     for (String h : holidays) body.append(body.length() > 0 ? "\n" : "").append("📌 ").append(h);
-    v.setTextViewText(R.id.w_names, body.length() > 0 ? body : "Καμία γιορτή σήμερα");
+    v.setTextViewText(R.id.w_names, body.length() > 0 ? body : T.t("Καμία γιορτή σήμερα"));
 
     List<String> people = new ArrayList<>();
     for (ContactSync.Hit h : ContactSync.hits(ctx, store, today, 0)) people.add(h.person.callName() + (h.birthday ? " 🎂" : ""));
@@ -59,7 +60,7 @@ public class TodayWidget extends AppWidgetProvider {
 
     List<String> tomorrow = new ArrayList<>();
     for (EventStore.Event e : store.on(today.plusDays(1))) if (e.isNameDay() && !tomorrow.contains(e.canon)) tomorrow.add(e.canon);
-    v.setTextViewText(R.id.w_next, tomorrow.isEmpty() ? "" : "Αύριο: " + String.join(", ", tomorrow));
+    v.setTextViewText(R.id.w_next, tomorrow.isEmpty() ? "" : T.t("Αύριο: ") + String.join(", ", tomorrow));
 
     Intent open = new Intent(ctx, MainActivity.class).putExtra("page", people.isEmpty() ? "today" : "contacts")
         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);

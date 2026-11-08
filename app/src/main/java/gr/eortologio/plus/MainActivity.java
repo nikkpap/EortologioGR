@@ -47,10 +47,16 @@ public class MainActivity extends Activity {
   private static final int G1 = 0xff4f46e5, G2 = 0xff7c3aed, G3 = 0xffdb2777;
 
   private static final Locale EL = new Locale("el", "GR");
-  private static final DateTimeFormatter F_LONG = DateTimeFormatter.ofPattern("EEEE d MMMM yyyy", EL);
-  private static final DateTimeFormatter F_DAY = DateTimeFormatter.ofPattern("EEE d MMMM", EL);
-  private static final DateTimeFormatter F_SHORT = DateTimeFormatter.ofPattern("d MMM", EL);
-  private static final DateTimeFormatter F_MONTH = DateTimeFormatter.ofPattern("LLLL yyyy", EL);
+  // Μορφές ημερομηνίας ανάλογα με τη γλώσσα (ορίζονται στο onCreate μετά το T.init)
+  private DateTimeFormatter F_LONG, F_DAY, F_SHORT, F_MONTH;
+
+  private void initFormats() {
+    Locale L = T.locale();
+    F_LONG = DateTimeFormatter.ofPattern(T.en() ? "EEEE, MMMM d, yyyy" : "EEEE d MMMM yyyy", L);
+    F_DAY = DateTimeFormatter.ofPattern(T.en() ? "EEE, MMM d" : "EEE d MMMM", L);
+    F_SHORT = DateTimeFormatter.ofPattern(T.en() ? "MMM d" : "d MMM", L);
+    F_MONTH = DateTimeFormatter.ofPattern("LLLL yyyy", L);
+  }
 
   private static final int RC_NOTIF = 12, RC_CONTACTS = 13, RC_PICK = 15, RC_EXPORT = 16, RC_IMPORT = 17;
   interface OnPick { void picked(String number, String name); }
@@ -72,6 +78,8 @@ public class MainActivity extends Activity {
   // ======================================================================
   @Override public void onCreate(Bundle b) {
     prefs = getSharedPreferences("settings", 0);
+    T.init(this);
+    initFormats();
     String th = prefs.getString("theme", "auto");
     if ("light".equals(th)) setTheme(R.style.AppTheme_Light);
     else if ("dark".equals(th)) setTheme(R.style.AppTheme_Dark);
@@ -128,23 +136,23 @@ public class MainActivity extends Activity {
       String[] proj = { android.provider.ContactsContract.CommonDataKinds.Phone.NUMBER, android.provider.ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME };
       try (android.database.Cursor c = getContentResolver().query(uri, proj, null, null, null)) {
         if (c != null && c.moveToFirst()) pickContact.picked(c.getString(0), c.getString(1));
-      } catch (Exception e) { toast("Δεν διαβάστηκε η επαφή"); }
+      } catch (Exception e) { toast(T.t("Δεν διαβάστηκε η επαφή")); }
       pickContact = null;
     } else if (rc == RC_EXPORT) {
-      try { Backup.write(this, uri); toast("Το αντίγραφο αποθηκεύτηκε ✓"); }
-      catch (Exception e) { toast("Αποτυχία: " + e.getMessage()); }
+      try { Backup.write(this, uri); toast(T.t("Το αντίγραφο αποθηκεύτηκε ✓")); }
+      catch (Exception e) { toast(T.t("Αποτυχία: ") + e.getMessage()); }
     } else if (rc == RC_IMPORT) {
-      new AlertDialog.Builder(this).setTitle("Επαναφορά;")
-          .setMessage("Θα αντικατασταθούν τα «Δικά μου» και οι ρυθμίσεις με αυτά του αντιγράφου.")
-          .setNegativeButton("Άκυρο", null)
-          .setPositiveButton("Επαναφορά", (d, w) -> {
+      new AlertDialog.Builder(this).setTitle(T.t("Επαναφορά;"))
+          .setMessage(T.t("Θα αντικατασταθούν τα «Δικά μου» και οι ρυθμίσεις με αυτά του αντιγράφου."))
+          .setNegativeButton(T.t("Άκυρο"), null)
+          .setPositiveButton(T.t("Επαναφορά"), (d, w) -> {
             try {
               int n = Backup.restore(this, uri);
               searchIndex = null;
               ReminderReceiver.schedule(this);
-              toast("Επαναφέρθηκαν " + n + " ημερομηνίες ✓");
+              toast(T.t("Επαναφέρθηκαν ") + n + T.t(" ημερομηνίες ✓"));
               recreate();
-            } catch (Exception e) { toast("Αποτυχία: " + e.getMessage()); }
+            } catch (Exception e) { toast(T.t("Αποτυχία: ") + e.getMessage()); }
           }).show();
     }
   }
@@ -153,16 +161,16 @@ public class MainActivity extends Activity {
     super.onRequestPermissionsResult(rc, perms, res);
     if (rc == RC_SMS) {
       if (res.length > 0 && res[0] == PackageManager.PERMISSION_GRANTED) enableAutoSms();
-      else openAppSettings("Χωρίς την άδεια «SMS» δεν μπορούν να σταλούν αυτόματες ευχές. Ρυθμίσεις → Άδειες → SMS → Να επιτρέπεται.");
+      else openAppSettings(T.t("Χωρίς την άδεια «SMS» δεν μπορούν να σταλούν αυτόματες ευχές. Ρυθμίσεις → Άδειες → SMS → Να επιτρέπεται."));
       return;
     }
     if (rc == RC_CONTACTS) {
       ContactSync.invalidate();
       if (res.length > 0 && res[0] == PackageManager.PERMISSION_GRANTED) {
         prefs.edit().putBoolean("contacts", true).apply();
-        toast("Οι επαφές συγχρονίστηκαν ✓");
+        toast(T.t("Οι επαφές συγχρονίστηκαν ✓"));
       } else if (!shouldShowRequestPermissionRationale(Manifest.permission.READ_CONTACTS)) {
-        openAppSettings("Η άδεια επαφών είναι απενεργοποιημένη. Άνοιξε Ρυθμίσεις → Άδειες → Επαφές → Να επιτρέπεται.");
+        openAppSettings(T.t("Η άδεια επαφών είναι απενεργοποιημένη. Άνοιξε Ρυθμίσεις → Άδειες → Επαφές → Να επιτρέπεται."));
       }
     }
     render();
@@ -327,7 +335,7 @@ public class MainActivity extends Activity {
     b.setBackground(round(highlight ? accent : surface2, 16));
     TextView n = tv(String.valueOf(d.getDayOfMonth()), 18, highlight ? Color.WHITE : ink, true);
     n.setGravity(Gravity.CENTER);
-    TextView m = tv(d.format(DateTimeFormatter.ofPattern("MMM", EL)).replace(".", "").toUpperCase(EL), 10, highlight ? 0xddffffff : sub, true);
+    TextView m = tv(d.format(DateTimeFormatter.ofPattern("MMM", T.locale())).replace(".", "").toUpperCase(EL), 10, highlight ? 0xddffffff : sub, true);
     m.setGravity(Gravity.CENTER);
     b.addView(n); b.addView(m);
     b.setLayoutParams(new LinearLayout.LayoutParams(dp(52), dp(52)));
@@ -349,10 +357,11 @@ public class MainActivity extends Activity {
   }
 
   static String when(long days) {
-    if (days == 0) return "Σήμερα";
-    if (days == 1) return "Αύριο";
-    if (days < 0) return "πριν " + (-days) + " ημέρες";
-    return "σε " + days + " ημέρες";
+    if (days == 0) return T.t("Σήμερα");
+    if (days == 1) return T.t("Αύριο");
+    if (T.en()) return days < 0 ? (-days) + " days ago" : "in " + days + " days";
+    if (days < 0) return T.t("πριν ") + (-days) + T.t(" ημέρες");
+    return T.t("σε ") + days + T.t(" ημέρες");
   }
 
   void toast(String s) { Toast.makeText(this, s, Toast.LENGTH_SHORT).show(); }
@@ -377,7 +386,7 @@ public class MainActivity extends Activity {
     header.setBackground(hg);
     header.setPadding(dp(20), dp(16) + topInset, dp(20), dp(22));
     String[] titles = pageTitle();
-    header.addView(tv("ΕΟΡΤΟΛΟΓΙΟ +", 12, 0xccffffff, true));
+    header.addView(tv(T.t("ΕΟΡΤΟΛΟΓΙΟ +"), 12, 0xccffffff, true));
     TextView h1 = tv(titles[0], 26, Color.WHITE, true);
     h1.setPadding(0, dp(4), 0, dp(2));
     header.addView(h1);
@@ -409,11 +418,11 @@ public class MainActivity extends Activity {
     String date = LocalDate.now().format(F_LONG);
     date = date.substring(0, 1).toUpperCase(EL) + date.substring(1);
     switch (page) {
-      case "calendar": return new String[] { "Ημερολόγιο", "Όλες οι γιορτές του μήνα" };
-      case "contacts": return new String[] { "Επαφές", "Ποιος γιορτάζει — στείλε ευχές" };
-      case "personal": return new String[] { "Δικά μου", "Γενέθλια, επέτειοι & σημαντικές μέρες" };
-      case "settings": return new String[] { "Ρυθμίσεις", "Ειδοποιήσεις, επαφές, μπαταρία" };
-      default: return new String[] { "Χρόνια πολλά!", date };
+      case "calendar": return new String[] { T.t("Ημερολόγιο"), T.t("Όλες οι γιορτές του μήνα") };
+      case "contacts": return new String[] { T.t("Επαφές"), T.t("Ποιος γιορτάζει — στείλε ευχές") };
+      case "personal": return new String[] { T.t("Δικά μου"), T.t("Γενέθλια, επέτειοι & σημαντικές μέρες") };
+      case "settings": return new String[] { T.t("Ρυθμίσεις"), T.t("Ειδοποιήσεις, επαφές, μπαταρία") };
+      default: return new String[] { T.t("Χρόνια πολλά!"), date };
     }
   }
 
@@ -424,7 +433,7 @@ public class MainActivity extends Activity {
     n.setPadding(dp(6), dp(6), dp(6), dp(6) + bottomInset);
     String[] ids = { "today", "calendar", "contacts", "personal", "settings" };
     String[] icons = { "🎉", "📅", "👥", "⭐", "⚙️" };
-    String[] names = { "Σήμερα", "Ημερολόγιο", "Επαφές", "Δικά μου", "Ρυθμίσεις" };
+    String[] names = { T.t("Σήμερα"), T.t("Ημερολόγιο"), T.t("Επαφές"), T.t("Δικά μου"), T.t("Ρυθμίσεις") };
     for (int i = 0; i < ids.length; i++) {
       final String id = ids[i];
       boolean sel = page.equals(id);
@@ -464,7 +473,7 @@ public class MainActivity extends Activity {
 
     List<EventStore.Event> evs = store.on(today);
     LinearLayout hero = card();
-    hero.addView(tv("🎉 Σήμερα γιορτάζουν", 18, ink, true));
+    hero.addView(tv(T.t("🎉 Σήμερα γιορτάζουν"), 18, ink, true));
     ViewGroup chips = flow();
     chips.setPadding(0, dp(12), 0, 0);
     List<String> holidays = new ArrayList<>();
@@ -475,12 +484,12 @@ public class MainActivity extends Activity {
       } else if (!e.personal) holidays.add(e.title);
     }
     if (chips.getChildCount() == 0) {
-      TextView none = tv("Καμία ονομαστική γιορτή σήμερα στο εορτολόγιο. Δες τις επόμενες παρακάτω 👇", 14, sub, false);
+      TextView none = tv(T.t("Καμία ονομαστική γιορτή σήμερα στο εορτολόγιο. Δες τις επόμενες παρακάτω 👇"), 14, sub, false);
       none.setPadding(0, dp(8), 0, 0);
       hero.addView(none);
     } else hero.addView(chips);
     for (String h : holidays) {
-      TextView t = tv("📌 " + h, 14, pink, true);
+      TextView t = tv("📌 " + T.t(h), 14, pink, true);
       t.setPadding(0, dp(12), 0, 0);
       hero.addView(t);
     }
@@ -500,24 +509,24 @@ public class MainActivity extends Activity {
       c.setBackground(round(dark ? 0xff16324a : 0xffe0f2fe, 22));
       long dd = EventStore.daysUntil(today, lw.start);
       String range = lw.start.format(F_SHORT) + " – " + lw.end.format(F_SHORT);
-      c.addView(tv("🏖️ " + (lw.days() >= 4 ? lw.days() + "ήμερο" : "Τριήμερο") + ": " + lw.name, 16, ink, true));
-      c.addView(tv(range + " · " + (dd <= 0 ? "τώρα!" : when(dd)) + (lw.bridge ? " · με «γέφυρα» 1 ημέρας" : ""), 13, sub, false));
+      c.addView(tv("🏖️ " + (lw.days() >= 4 ? lw.days() + T.t("ήμερο") : T.t("Τριήμερο")) + ": " + T.t(lw.name), 16, ink, true));
+      c.addView(tv(range + " · " + (dd <= 0 ? T.t("τώρα!") : when(dd)) + (lw.bridge ? T.t(" · με «γέφυρα» 1 ημέρας") : ""), 13, sub, false));
       body.addView(c);
     }
 
     // ---- Επαφές που γιορτάζουν σήμερα/αύριο ----
     if (!ContactSync.granted(this)) {
       LinearLayout c = card();
-      c.addView(tv("👥 Ποιος από τους δικούς σου γιορτάζει;", 16, ink, true));
-      TextView d = tv("Σύνδεσε τις επαφές του κινητού και θα σου λέω ποιος γιορτάζει ή έχει γενέθλια, για να στείλεις «Χρόνια πολλά» με ένα πάτημα. Οι επαφές δεν φεύγουν ποτέ από το κινητό.", 14, sub, false);
+      c.addView(tv(T.t("👥 Ποιος από τους δικούς σου γιορτάζει;"), 16, ink, true));
+      TextView d = tv(T.t("Σύνδεσε τις επαφές του κινητού και θα σου λέω ποιος γιορτάζει ή έχει γενέθλια, για να στείλεις «Χρόνια πολλά» με ένα πάτημα. Οι επαφές δεν φεύγουν ποτέ από το κινητό."), 14, sub, false);
       d.setPadding(0, dp(6), 0, dp(12));
       c.addView(d);
-      c.addView(button("Σύνδεση επαφών", true, this::askContacts));
+      c.addView(button(T.t("Σύνδεση επαφών"), true, this::askContacts));
       body.addView(c);
     }
     List<ContactSync.Hit> hits = ContactSync.hits(this, store, today, 1); // και γενέθλια «Δικά μου» συνδεδεμένα με επαφή
     if (!hits.isEmpty()) {
-      section("Από τις επαφές σου", "Όλες ›", () -> { page = "contacts"; render(); });
+      section(T.t("Από τις επαφές σου"), T.t("Όλες ›"), () -> { page = "contacts"; render(); });
       for (ContactSync.Hit h : hits) body.addView(contactCard(h, today, true));
     }
 
@@ -528,13 +537,13 @@ public class MainActivity extends Activity {
         c.setBackground(round(dark ? 0xff3a2346 : 0xfffde7f3, 22));
         int y = e.yearsAt(today);
         c.addView(tv("⭐ " + e.title, 17, ink, true));
-        c.addView(tv(e.category + (y > 0 ? " · " + y + " χρόνια" : ""), 14, sub, false));
+        c.addView(tv(T.t(e.category) + (y > 0 ? " · " + y + T.t(" χρόνια") : ""), 14, sub, false));
         body.addView(c);
       }
     }
 
     // ---- Έρχονται σύντομα (14 ημέρες, ομαδοποιημένα ανά ημέρα) ----
-    section("Έρχονται σύντομα", "Ημερολόγιο ›", () -> { page = "calendar"; render(); });
+    section(T.t("Έρχονται σύντομα"), T.t("Ημερολόγιο ›"), () -> { page = "calendar"; render(); });
     for (int i = 1; i <= 14; i++) {
       LocalDate d = today.plusDays(i);
       List<EventStore.Event> list = store.on(d);
@@ -556,7 +565,7 @@ public class MainActivity extends Activity {
     bar.setLayoutParams(lp);
     bar.addView(tv("🔍", 17, sub, false));
     EditText e = new EditText(this);
-    e.setHint("Αναζήτηση ονόματος, π.χ. Γιώργος, Nikos");
+    e.setHint(T.t("Αναζήτηση ονόματος, π.χ. Γιώργος, Nikos"));
     e.setHintTextColor(sub);
     e.setTextColor(ink);
     e.setTextSize(16);
@@ -641,11 +650,11 @@ public class MainActivity extends Activity {
 
     if (starts.isEmpty() && others.isEmpty() && people.isEmpty()) {
       LinearLayout c = card();
-      c.addView(tv("Δεν βρέθηκε «" + query + "»", 16, ink, true));
-      TextView d = tv("Δοκίμασε άλλη γραφή (π.χ. Γιώργος / Γεώργιος / Giorgos) ή πρόσθεσέ το στα «Δικά μου».", 14, sub, false);
+      c.addView(tv(T.t("Δεν βρέθηκε «") + query + "»", 16, ink, true));
+      TextView d = tv(T.t("Δοκίμασε άλλη γραφή (π.χ. Γιώργος / Γεώργιος / Giorgos) ή πρόσθεσέ το στα «Δικά μου»."), 14, sub, false);
       d.setPadding(0, dp(6), 0, dp(12));
       c.addView(d);
-      c.addView(button("+ Προσθήκη στα Δικά μου", false, () -> edit(null, query)));
+      c.addView(button(T.t("+ Προσθήκη στα Δικά μου"), false, () -> edit(null, query)));
       body.addView(c);
     }
     int n = 0;
@@ -654,28 +663,28 @@ public class MainActivity extends Activity {
       body.addView(nameResult(canon, today));
     }
     if (!people.isEmpty()) {
-      section("Επαφές", null, null);
+      section(T.t("Επαφές"), null, null);
       for (ContactSync.Person p : people) {
         LocalDate next = null; String why = "";
         for (String c : p.canon) for (EventStore.Event e : store.nameDaysOf(c)) {
           LocalDate d = e.next(today);
-          if (next == null || d.isBefore(next)) { next = d; why = "Γιορτή · " + c; }
+          if (next == null || d.isBefore(next)) { next = d; why = T.t("Γιορτή · ") + c; }
         }
         if (p.hasBirthday()) {
           try {
             LocalDate b = LocalDate.of(today.getYear(), p.bMonth, p.bMonth == 2 && p.bDay == 29 && !today.isLeapYear() ? 28 : p.bDay);
             if (b.isBefore(today)) b = b.plusYears(1);
-            if (next == null || b.isBefore(next)) { next = b; why = "Γενέθλια"; }
+            if (next == null || b.isBefore(next)) { next = b; why = T.t("Γενέθλια"); }
           } catch (Exception ignored) { }
         }
-        if (next != null) body.addView(contactCard(new ContactSync.Hit(p, next, "Γενέθλια".equals(why), why), today, false));
+        if (next != null) body.addView(contactCard(new ContactSync.Hit(p, next, T.t("Γενέθλια").equals(why), why), today, false));
       }
     }
     if (!others.isEmpty()) {
-      section("Άλλα", null, null);
+      section(T.t("Άλλα"), null, null);
       for (EventStore.Event e : others) {
         LocalDate d = e.next(today);
-        body.addView(simpleRow(d, e.title, e.category + " · " + when(EventStore.daysUntil(today, d)), today, e.personal ? () -> edit(e, null) : null));
+        body.addView(simpleRow(d, T.t(e.title), T.t(e.category) + " · " + when(EventStore.daysUntil(today, d)), today, e.personal ? () -> edit(e, null) : null));
       }
     }
     body = saved;
@@ -705,7 +714,7 @@ public class MainActivity extends Activity {
     int count = 0;
     for (ContactSync.Person p : ContactSync.load(this)) if (p.canon.contains(canon)) count++;
     if (count > 0) {
-      TextView t = tv("👥 " + count + (count == 1 ? " επαφή σου έχει αυτό το όνομα" : " επαφές σου έχουν αυτό το όνομα"), 13, green, true);
+      TextView t = tv("👥 " + count + (count == 1 ? T.t(" επαφή σου έχει αυτό το όνομα") : T.t(" επαφές σου έχουν αυτό το όνομα")), 13, green, true);
       t.setPadding(0, dp(10), 0, 0);
       c.addView(t);
     }
@@ -714,7 +723,7 @@ public class MainActivity extends Activity {
 
   TextView nameChip(String canon) {
     List<String> v = Names.variantsOf(canon);
-    String label = v.isEmpty() ? canon : canon + "  ·  " + v.get(0);
+    String label = T.en() ? canon + "  ·  " + Names.latinPretty(canon) : v.isEmpty() ? canon : canon + "  ·  " + v.get(0);
     return chip(label, accent, accentSoft, () -> showName(canon));
   }
 
@@ -722,16 +731,16 @@ public class MainActivity extends Activity {
     LocalDate today = LocalDate.now();
     StringBuilder s = new StringBuilder();
     List<String> v = Names.variantsOf(canon);
-    if (!v.isEmpty()) s.append("Παραλλαγές: ").append(TextUtils.join(", ", v)).append("\n\n");
+    if (!v.isEmpty()) s.append(T.t("Παραλλαγές: ")).append(TextUtils.join(", ", v)).append("\n\n");
     for (EventStore.Event e : store.nameDaysOf(canon)) {
       LocalDate d = e.next(today);
       s.append("📅 ").append(d.format(F_DAY)).append(" — ").append(when(EventStore.daysUntil(today, d))).append('\n');
     }
     List<String> ppl = new ArrayList<>();
     for (ContactSync.Person p : ContactSync.load(this)) if (p.canon.contains(canon)) ppl.add(p.displayName);
-    if (!ppl.isEmpty()) s.append("\n👥 Επαφές: ").append(TextUtils.join(", ", ppl));
+    if (!ppl.isEmpty()) s.append(T.t("\n👥 Επαφές: ")).append(TextUtils.join(", ", ppl));
     AlertDialog.Builder b = new AlertDialog.Builder(this).setTitle(canon).setMessage(s.toString().trim()).setPositiveButton("OK", null);
-    if (!ppl.isEmpty()) b.setNeutralButton("Στείλε ευχές", (d, w) -> { page = "contacts"; render(); });
+    if (!ppl.isEmpty()) b.setNeutralButton(T.t("Στείλε ευχές"), (d, w) -> { page = "contacts"; render(); });
     b.show();
   }
 
@@ -747,9 +756,9 @@ public class MainActivity extends Activity {
     Set<String> seen = new HashSet<>();
     for (EventStore.Event e : list) {
       if (e.isNameDay()) { if (seen.add(e.canon)) { if (names.length() > 0) names.append(", "); names.append(e.canon); } }
-      else extra.add((e.personal ? "⭐ " : "📌 ") + e.title);
+      else extra.add((e.personal ? "⭐ " : "📌 ") + (e.personal ? e.title : T.t(e.title)));
     }
-    String head = d.format(DateTimeFormatter.ofPattern("EEEE", EL)) + " · " + when(EventStore.daysUntil(today, d));
+    String head = d.format(DateTimeFormatter.ofPattern("EEEE", T.locale())) + " · " + when(EventStore.daysUntil(today, d));
     t.addView(tv(head.substring(0, 1).toUpperCase(EL) + head.substring(1), 12, sub, true));
     if (names.length() > 0) {
       TextView n = tv(names, 15, ink, true);
@@ -790,15 +799,15 @@ public class MainActivity extends Activity {
     LinearLayout c = card();
     c.setBackground(round(dark ? 0xff23224a : 0xffeeeaff, 22));
     LinearLayout top = row();
-    top.addView(tv("🚀 Γρήγορη ρύθμιση (3 βήματα)", 16, ink, true), new LinearLayout.LayoutParams(0, -2, 1));
+    top.addView(tv(T.t("🚀 Γρήγορη ρύθμιση (3 βήματα)"), 16, ink, true), new LinearLayout.LayoutParams(0, -2, 1));
     TextView x = tv("✕", 15, sub, false);
     x.setPadding(dp(10), dp(4), dp(4), dp(4));
     clickable(x, round(Color.TRANSPARENT, 12), 12, () -> { prefs.edit().putBoolean("guideDone", true).apply(); render(); });
     top.addView(x);
     c.addView(top);
-    c.addView(step(1, "Ειδοποιήσεις", "Για να σου θυμίζω τις γιορτές κάθε πρωί", notif, this::askNotifications));
-    c.addView(step(2, "Επαφές", "Για να βρίσκω ποιοι φίλοι σου γιορτάζουν", contacts, this::askContacts));
-    c.addView(step(3, "Μπαταρία χωρίς περιορισμό", "Για να έρχονται οι ειδοποιήσεις στην ώρα τους", battery, this::askBattery));
+    c.addView(step(1, T.t("Ειδοποιήσεις"), T.t("Για να σου θυμίζω τις γιορτές κάθε πρωί"), notif, this::askNotifications));
+    c.addView(step(2, T.t("Επαφές"), T.t("Για να βρίσκω ποιοι φίλοι σου γιορτάζουν"), contacts, this::askContacts));
+    c.addView(step(3, T.t("Μπαταρία χωρίς περιορισμό"), T.t("Για να έρχονται οι ειδοποιήσεις στην ώρα τους"), battery, this::askBattery));
     body.addView(c);
   }
 
@@ -817,8 +826,8 @@ public class MainActivity extends Activity {
     t.addView(tv(title, 15, ink, true));
     t.addView(tv(detail, 12, sub, false));
     r.addView(t, new LinearLayout.LayoutParams(0, -2, 1));
-    if (!done) r.addView(button("Ενεργοποίηση", true, action));
-    else r.addView(tv("Έτοιμο", 13, green, true));
+    if (!done) r.addView(button(T.t("Ενεργοποίηση"), true, action));
+    else r.addView(tv(T.t("Έτοιμο"), 13, green, true));
     return r;
   }
 
@@ -846,7 +855,8 @@ public class MainActivity extends Activity {
     // Ονόματα ημερών (Δευτέρα πρώτη)
     LinearLayout wd = row();
     wd.setPadding(0, dp(10), 0, dp(4));
-    String[] w = { "Δ", "Τ", "Τ", "Π", "Π", "Σ", "Κ" };
+    String[] w = new String[7]; // αρχικά ημερών (Δευτέρα πρώτη) στη γλώσσα της εφαρμογής
+    for (int i = 0; i < 7; i++) w[i] = DayOfWeek.of(i + 1).getDisplayName(java.time.format.TextStyle.NARROW_STANDALONE, T.locale()).toUpperCase(T.locale());
     for (int i = 0; i < 7; i++) {
       TextView t = tv(w[i], 12, i >= 5 ? pink : sub, true);
       t.setGravity(Gravity.CENTER);
@@ -886,15 +896,15 @@ public class MainActivity extends Activity {
     if (chips.getChildCount() > 0) d.addView(chips);
     for (EventStore.Event e : list) {
       if (e.isNameDay()) continue;
-      TextView t = tv((e.personal ? "⭐ " : "📌 ") + e.title, 15, e.personal ? pink : accent, true);
+      TextView t = tv((e.personal ? "⭐ " : "📌 ") + (e.personal ? e.title : T.t(e.title)), 15, e.personal ? pink : accent, true);
       t.setPadding(0, dp(10), 0, 0);
       if (e.personal) clickable(t, round(Color.TRANSPARENT, 8), 8, () -> edit(e, null));
       d.addView(t);
     }
-    if (list.isEmpty()) d.addView(tv("Δεν υπάρχει γιορτή αυτή τη μέρα.", 14, sub, false));
+    if (list.isEmpty()) d.addView(tv(T.t("Δεν υπάρχει γιορτή αυτή τη μέρα."), 14, sub, false));
     String ph = Church.holiday(selectedDay);
     if (ph != null) {
-      TextView t = tv("🏖️ Επίσημη αργία: " + ph, 14, pink, true);
+      TextView t = tv(T.t("🏖️ Επίσημη αργία: ") + T.t(ph), 14, pink, true);
       t.setPadding(0, dp(10), 0, 0);
       d.addView(t);
     }
@@ -904,7 +914,7 @@ public class MainActivity extends Activity {
       t.setPadding(0, dp(10), 0, 0);
       d.addView(t);
     }
-    TextView add = tv("+ Πρόσθεσε δική σου ημερομηνία εδώ", 14, accent, true);
+    TextView add = tv(T.t("+ Πρόσθεσε δική σου ημερομηνία εδώ"), 14, accent, true);
     add.setPadding(0, dp(14), 0, 0);
     final LocalDate sd = selectedDay;
     add.setOnClickListener(v -> editAt(sd));
@@ -962,11 +972,11 @@ public class MainActivity extends Activity {
   void contacts(LocalDate today) {
     if (!ContactSync.granted(this) || !prefs.getBoolean("contacts", true)) {
       LinearLayout c = card();
-      c.addView(tv("👥 Συγχρονισμός επαφών", 18, ink, true));
-      TextView d = tv("1. Πάτα «Σύνδεση επαφών».\n2. Επίλεξε «Να επιτρέπεται».\n3. Έτοιμο! Θα βλέπεις εδώ ποιος γιορτάζει ή έχει γενέθλια και θα στέλνεις «Χρόνια πολλά» με SMS, WhatsApp ή Viber με ένα πάτημα.\n\n🔒 Οι επαφές διαβάζονται μόνο τοπικά, δεν αποθηκεύονται και δεν στέλνονται πουθενά.", 14, sub, false);
+      c.addView(tv(T.t("👥 Συγχρονισμός επαφών"), 18, ink, true));
+      TextView d = tv(T.t("1. Πάτα «Σύνδεση επαφών».\n2. Επίλεξε «Να επιτρέπεται».\n3. Έτοιμο! Θα βλέπεις εδώ ποιος γιορτάζει ή έχει γενέθλια και θα στέλνεις «Χρόνια πολλά» με SMS, WhatsApp ή Viber με ένα πάτημα.\n\n🔒 Οι επαφές διαβάζονται μόνο τοπικά, δεν αποθηκεύονται και δεν στέλνονται πουθενά."), 14, sub, false);
       d.setPadding(0, dp(8), 0, dp(14));
       c.addView(d);
-      c.addView(button("Σύνδεση επαφών", true, this::askContacts));
+      c.addView(button(T.t("Σύνδεση επαφών"), true, this::askContacts));
       body.addView(c);
       return;
     }
@@ -976,10 +986,10 @@ public class MainActivity extends Activity {
     int named = 0, bdays = 0;
     for (ContactSync.Person p : people) { if (!p.canon.isEmpty()) named++; if (p.hasBirthday()) bdays++; }
     LinearLayout t = col();
-    t.addView(tv("✓ Συγχρονισμένες επαφές", 15, green, true));
-    t.addView(tv(named + " με ονομαστική γιορτή · " + bdays + " με γενέθλια", 13, sub, false));
+    t.addView(tv(T.t("✓ Συγχρονισμένες επαφές"), 15, green, true));
+    t.addView(tv(named + T.t(" με ονομαστική γιορτή · ") + bdays + T.t(" με γενέθλια"), 13, sub, false));
     r.addView(t, new LinearLayout.LayoutParams(0, -2, 1));
-    r.addView(button("↻ Ανανέωση", false, () -> { ContactSync.invalidate(); toast("Ανανεώθηκε"); render(); }));
+    r.addView(button(T.t("↻ Ανανέωση"), false, () -> { ContactSync.invalidate(); toast(T.t("Ανανεώθηκε")); render(); }));
     info.addView(r);
     int sentYear = 0;
     String y = String.valueOf(today.getYear());
@@ -988,7 +998,7 @@ public class MainActivity extends Activity {
     Set<Long> seenM = new HashSet<>();
     for (ContactSync.Hit h : ContactSync.hits(this, store, today, today.lengthOfMonth() - today.getDayOfMonth()))
       if (seenM.add(h.person.id)) month++;
-    TextView st = tv("📊 Αυτόν τον μήνα γιορτάζουν/έχουν γενέθλια: " + month + (sentYear > 0 ? "  ·  ✉️ Φέτος στάλθηκαν " + sentYear + " αυτόματες ευχές" : ""), 13, sub, false);
+    TextView st = tv(T.t("📊 Αυτόν τον μήνα γιορτάζουν/έχουν γενέθλια: ") + month + (sentYear > 0 ? T.t("  ·  ✉️ Φέτος στάλθηκαν ") + sentYear + T.t(" αυτόματες ευχές") : ""), 13, sub, false);
     st.setPadding(0, dp(10), 0, 0);
     info.addView(st);
     body.addView(info);
@@ -996,14 +1006,14 @@ public class MainActivity extends Activity {
     List<ContactSync.Hit> hits = ContactSync.hits(this, store, today, 365);
     if (hits.isEmpty()) {
       LinearLayout c = card();
-      c.addView(tv("Δεν βρέθηκαν επαφές με γνωστό όνομα.", 15, ink, true));
-      TextView d = tv("Το ταίριασμα γίνεται με το μικρό όνομα (π.χ. «Νίκος», «Giorgos»). Αν μια επαφή λείπει, πρόσθεσέ την χειροκίνητα στα «Δικά μου».", 13, sub, false);
+      c.addView(tv(T.t("Δεν βρέθηκαν επαφές με γνωστό όνομα."), 15, ink, true));
+      TextView d = tv(T.t("Το ταίριασμα γίνεται με το μικρό όνομα (π.χ. «Νίκος», «Giorgos»). Αν μια επαφή λείπει, πρόσθεσέ την χειροκίνητα στα «Δικά μου»."), 13, sub, false);
       d.setPadding(0, dp(6), 0, 0);
       c.addView(d);
       body.addView(c);
       return;
     }
-    String[] titles = { "🎉 Σήμερα", "Αύριο", "Αυτή την εβδομάδα", "Αυτόν τον μήνα", "Αργότερα" };
+    String[] titles = { T.t("🎉 Σήμερα"), T.t("Αύριο"), T.t("Αυτή την εβδομάδα"), T.t("Αυτόν τον μήνα"), T.t("Αργότερα") };
     int[] limits = { 0, 1, 7, 31, 366 };
     int idx = 0, bucket = -1, laterCount = 0;
     Set<Long> laterSeen = new HashSet<>();
@@ -1028,7 +1038,7 @@ public class MainActivity extends Activity {
     t.setPadding(dp(14), 0, 0, 0);
     t.addView(tv(h.person.displayName, 16, ink, true));
     long dd = EventStore.daysUntil(today, h.date);
-    String what = h.birthday ? "🎂 Γενέθλια" + (h.person.bYear > 0 ? " · " + (h.date.getYear() - h.person.bYear) + " χρόνια" : "") : "🎉 Γιορτή · " + h.reason;
+    String what = h.birthday ? T.t("🎂 Γενέθλια") + (h.person.bYear > 0 ? " · " + (h.date.getYear() - h.person.bYear) + T.t(" χρόνια") : "") : T.t("🎉 Γιορτή · ") + h.reason;
     t.addView(tv(what + " · " + (dd <= 1 ? when(dd) : h.date.format(F_DAY)), 13, dd == 0 ? pink : sub, dd == 0));
     r.addView(t, new LinearLayout.LayoutParams(0, -2, 1));
     c.addView(r);
@@ -1074,7 +1084,7 @@ public class MainActivity extends Activity {
   }
 
   View contactRow(ContactSync.Hit h, LocalDate today) {
-    String what = h.birthday ? "🎂 Γενέθλια" : "🎉 " + h.reason;
+    String what = h.birthday ? T.t("🎂 Γενέθλια") : "🎉 " + h.reason;
     return simpleRow(h.date, h.person.displayName, what + " · " + when(EventStore.daysUntil(today, h.date)), today, () -> wishMenu(h));
   }
 
@@ -1082,9 +1092,9 @@ public class MainActivity extends Activity {
     String msg = Wishes.message(this, h);
     boolean blocked = AutoWishes.isBlocked(this, h.person);
     boolean close = Wishes.isClose(this, h.person);
-    String[] items = { "💬 SMS", "🟢 WhatsApp", "🟣 Viber", "📤 Άλλη εφαρμογή", "📞 Κλήση", "📋 Αντιγραφή μηνύματος",
-        blocked ? "✅ Να παίρνει αυτόματο SMS" : "🚫 Να μην παίρνει αυτόματο SMS",
-        close ? "💔 Όχι πια οικογένεια/φίλος" : "❤️ Οικογένεια / φίλος (πιο ζεστή ευχή)" };
+    String[] items = { "💬 SMS", "🟢 WhatsApp", "🟣 Viber", T.t("📤 Άλλη εφαρμογή"), T.t("📞 Κλήση"), T.t("📋 Αντιγραφή μηνύματος"),
+        blocked ? T.t("✅ Να παίρνει αυτόματο SMS") : T.t("🚫 Να μην παίρνει αυτόματο SMS"),
+        close ? T.t("💔 Όχι πια οικογένεια/φίλος") : T.t("❤️ Οικογένεια / φίλος (πιο ζεστή ευχή)") };
     new AlertDialog.Builder(this).setTitle(h.person.displayName + "\n«" + msg + "»").setItems(items, (d, w) -> {
       switch (w) {
         case 0: Wishes.sms(this, h); break;
@@ -1094,33 +1104,33 @@ public class MainActivity extends Activity {
         case 4: Wishes.call(this, h); break;
         case 6:
           AutoWishes.setBlocked(this, h.person, !blocked);
-          toast(blocked ? "Θα παίρνει αυτόματο SMS" : "Δεν θα παίρνει αυτόματο SMS");
+          toast(blocked ? T.t("Θα παίρνει αυτόματο SMS") : T.t("Δεν θα παίρνει αυτόματο SMS"));
           break;
         case 7:
           Wishes.setClose(this, h.person, !close);
-          toast(close ? "Θα παίρνει κανονική ευχή" : "❤️ Θα παίρνει πιο ζεστή ευχή");
+          toast(close ? T.t("Θα παίρνει κανονική ευχή") : T.t("❤️ Θα παίρνει πιο ζεστή ευχή"));
           break;
         default:
           android.content.ClipboardManager cm = (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
-          if (cm != null) cm.setPrimaryClip(android.content.ClipData.newPlainText("Ευχές", msg));
-          toast("Αντιγράφηκε");
+          if (cm != null) cm.setPrimaryClip(android.content.ClipData.newPlainText(T.t("Ευχές"), msg));
+          toast(T.t("Αντιγράφηκε"));
       }
-    }).setNegativeButton("Κλείσιμο", null).show();
+    }).setNegativeButton(T.t("Κλείσιμο"), null).show();
   }
 
   // ======================================================================
   // ΔΙΚΑ ΜΟΥ
   // ======================================================================
   void personal(LocalDate today) {
-    TextView add = button("+  Νέα ημερομηνία", true, () -> edit(null, null));
+    TextView add = button(T.t("+  Νέα ημερομηνία"), true, () -> edit(null, null));
     LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(-1, -2);
     p.bottomMargin = dp(8);
     body.addView(add, p);
     List<EventStore.Event> list = new ArrayList<>(store.editable());
     if (list.isEmpty()) {
       LinearLayout c = card();
-      c.addView(tv("Δεν έχεις προσθέσει ακόμα τίποτα", 16, ink, true));
-      TextView d = tv("Πρόσθεσε γενέθλια, επετείους ή γιορτές που δεν υπάρχουν στο εορτολόγιο. Θα σε ειδοποιώ από την προηγούμενη μέρα.", 14, sub, false);
+      c.addView(tv(T.t("Δεν έχεις προσθέσει ακόμα τίποτα"), 16, ink, true));
+      TextView d = tv(T.t("Πρόσθεσε γενέθλια, επετείους ή γιορτές που δεν υπάρχουν στο εορτολόγιο. Θα σε ειδοποιώ από την προηγούμενη μέρα."), 14, sub, false);
       d.setPadding(0, dp(6), 0, 0);
       c.addView(d);
       body.addView(c);
@@ -1134,7 +1144,7 @@ public class MainActivity extends Activity {
       LocalDate d = next.get(e);
       int y = e.yearsAt(d);
       String icon = EventStore.CAT_BIRTHDAY.equals(e.category) ? "🎂 " : EventStore.CAT_NAME.equals(e.category) ? "🎉 " : EventStore.CAT_ANNIVERSARY.equals(e.category) ? "💍 " : "⭐ ";
-      body.addView(simpleRow(d, icon + e.title, e.category + (y > 0 ? " · " + y + " χρόνια" : "") + " · " + when(EventStore.daysUntil(today, d))
+      body.addView(simpleRow(d, icon + e.title, T.t(e.category) + (y > 0 ? " · " + y + T.t(" χρόνια") : "") + " · " + when(EventStore.daysUntil(today, d))
           + (e.phone != null ? " · 👤" : ""), today, () -> edit(e, null)));
     }
   }
@@ -1151,14 +1161,14 @@ public class MainActivity extends Activity {
     LinearLayout form = col();
     form.setPadding(dp(22), dp(8), dp(22), 0);
     EditText name = new EditText(this);
-    name.setHint("Όνομα ή γεγονός (π.χ. Γενέθλια Μαρίας)");
+    name.setHint(T.t("Όνομα ή γεγονός (π.χ. Γενέθλια Μαρίας)"));
     name.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
     if (e != null) name.setText(e.title);
     else if (presetTitle != null) name.setText(presetTitle);
     form.addView(name);
 
     String[] cats = { EventStore.CAT_BIRTHDAY, EventStore.CAT_NAME, EventStore.CAT_ANNIVERSARY, EventStore.CAT_PERSONAL };
-    String[] catLabels = { "🎂 Γενέθλια", "🎉 Γιορτή", "💍 Επέτειος", "⭐ Άλλο" };
+    String[] catLabels = { T.t("🎂 Γενέθλια"), T.t("🎉 Γιορτή"), T.t("💍 Επέτειος"), T.t("⭐ Άλλο") };
     RadioGroup rg = new RadioGroup(this);
     rg.setOrientation(RadioGroup.HORIZONTAL);
     HorizontalScrollView hs = new HorizontalScrollView(this);
@@ -1179,14 +1189,14 @@ public class MainActivity extends Activity {
     pp.topMargin = dp(10);
     form.addView(pick, pp);
     CheckBox withYear = new CheckBox(this);
-    withYear.setText("Να μετράει τα χρόνια (π.χ. ηλικία)");
+    withYear.setText(T.t("Να μετράει τα χρόνια (π.χ. ηλικία)"));
     withYear.setChecked(date[2] > 0);
     form.addView(withYear);
 
     Runnable refresh = () -> {
-      String s = "📅  " + date[0] + " " + java.time.Month.of(date[1]).getDisplayName(java.time.format.TextStyle.FULL, EL);
+      String s = "📅  " + date[0] + " " + java.time.Month.of(date[1]).getDisplayName(java.time.format.TextStyle.FULL, T.locale());
       if (withYear.isChecked() && date[2] > 0) s += " " + date[2];
-      pick.setText(s + "   ·  αλλαγή");
+      pick.setText(s + T.t("   ·  αλλαγή"));
     };
     refresh.run();
     pick.setOnClickListener(v -> {
@@ -1199,14 +1209,14 @@ public class MainActivity extends Activity {
       dp.show();
     });
     withYear.setOnCheckedChangeListener((b, on) -> {
-      if (on && date[2] == 0) { date[2] = now.getYear(); toast("Επίλεξε και το έτος από την ημερομηνία"); }
+      if (on && date[2] == 0) { date[2] = now.getYear(); toast(T.t("Επίλεξε και το έτος από την ημερομηνία")); }
       refresh.run();
     });
 
     // Σύνδεση με επαφή: για κουμπιά ευχών και αυτόματο SMS
     final String[] link = { e != null ? e.phone : null, e != null ? e.linkName : null };
     TextView linkBtn = button("", false, () -> { });
-    Runnable refreshLink = () -> linkBtn.setText(link[0] == null ? "👤  Σύνδεση με επαφή (για ευχές / SMS)"
+    Runnable refreshLink = () -> linkBtn.setText(link[0] == null ? T.t("👤  Σύνδεση με επαφή (για ευχές / SMS)")
         : "👤  " + (link[1] != null ? link[1] : "") + " · " + link[0] + "   ✕");
     refreshLink.run();
     linkBtn.setOnClickListener(v -> {
@@ -1218,29 +1228,29 @@ public class MainActivity extends Activity {
       };
       try {
         startActivityForResult(new Intent(Intent.ACTION_PICK, android.provider.ContactsContract.CommonDataKinds.Phone.CONTENT_URI), RC_PICK);
-      } catch (Exception ex) { toast("Δεν βρέθηκε εφαρμογή επαφών"); }
+      } catch (Exception ex) { toast(T.t("Δεν βρέθηκε εφαρμογή επαφών")); }
     });
     LinearLayout.LayoutParams lp2 = new LinearLayout.LayoutParams(-1, -2);
     lp2.topMargin = dp(8);
     form.addView(linkBtn, lp2);
 
-    AlertDialog.Builder b = new AlertDialog.Builder(this).setTitle(fresh ? "Νέα ημερομηνία" : "Επεξεργασία").setView(form).setNegativeButton("Άκυρο", null);
-    if (!fresh) b.setNeutralButton("Διαγραφή", (d, w) -> new AlertDialog.Builder(this).setMessage("Διαγραφή του «" + e.title + "»;")
-        .setNegativeButton("Όχι", null).setPositiveButton("Διαγραφή", (d2, w2) -> { store.delete(e.id); searchIndex = null; render(); }).show());
-    b.setPositiveButton("Αποθήκευση", null);
+    AlertDialog.Builder b = new AlertDialog.Builder(this).setTitle(fresh ? T.t("Νέα ημερομηνία") : T.t("Επεξεργασία")).setView(form).setNegativeButton(T.t("Άκυρο"), null);
+    if (!fresh) b.setNeutralButton(T.t("Διαγραφή"), (d, w) -> new AlertDialog.Builder(this).setMessage(T.t("Διαγραφή του «") + e.title + "»;")
+        .setNegativeButton(T.t("Όχι"), null).setPositiveButton(T.t("Διαγραφή"), (d2, w2) -> { store.delete(e.id); searchIndex = null; render(); }).show());
+    b.setPositiveButton(T.t("Αποθήκευση"), null);
     AlertDialog dlg = b.create();
     dlg.setOnShowListener(x -> dlg.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
       String title = name.getText().toString().trim();
-      if (title.isEmpty()) { name.setError("Γράψε ένα όνομα"); return; }
+      if (title.isEmpty()) { name.setError(T.t("Γράψε ένα όνομα")); return; }
       int year = withYear.isChecked() ? date[2] : 0;
-      if (year > now.getYear()) { toast("Το έτος είναι στο μέλλον"); return; }
+      if (year > now.getYear()) { toast(T.t("Το έτος είναι στο μέλλον")); return; }
       String cat = cats[Math.max(0, rg.getCheckedRadioButtonId() - 1000)];
       EventStore.Event ne = new EventStore.Event(fresh ? "user:" + UUID.randomUUID() : e.id, title, cat, date[0], date[1], 0, year, false, true);
       ne.phone = link[0];
       ne.linkName = link[1];
       store.save(ne);
       ReminderReceiver.schedule(this);
-      toast("Αποθηκεύτηκε ✓");
+      toast(T.t("Αποθηκεύτηκε ✓"));
       dlg.dismiss();
       render();
     }));
@@ -1251,76 +1261,91 @@ public class MainActivity extends Activity {
   // ΡΥΘΜΙΣΕΙΣ
   // ======================================================================
   void settings() {
-    section("🎨 Εμφάνιση", null, null);
+    section(T.t("🎨 Εμφάνιση"), null, null);
     LinearLayout ap = card();
     String th = prefs.getString("theme", "auto");
     String[] thKeys = { "auto", "light", "dark" };
-    String[] thNames = { "🌗 Αυτόματο (όπως το κινητό)", "☀️ Φωτεινό", "🌙 Σκοτεινό" };
+    String[] thNames = { T.t("🌗 Αυτόματο (όπως το κινητό)"), T.t("☀️ Φωτεινό"), T.t("🌙 Σκοτεινό") };
     int cur = "light".equals(th) ? 1 : "dark".equals(th) ? 2 : 0;
-    ap.addView(settingRow("Θέμα", thNames[cur], () -> new AlertDialog.Builder(this).setTitle("Θέμα εμφάνισης")
+    ap.addView(settingRow(T.t("Θέμα"), thNames[cur], () -> new AlertDialog.Builder(this).setTitle(T.t("Θέμα εμφάνισης"))
         .setSingleChoiceItems(thNames, cur, (d, w) -> {
           d.dismiss();
           if (w != cur) { prefs.edit().putString("theme", thKeys[w]).apply(); recreate(); }
-        }).setNegativeButton("Άκυρο", null).show()));
+        }).setNegativeButton(T.t("Άκυρο"), null).show()));
+    ap.addView(divider());
+    String lg = prefs.getString("lang", "el");
+    String[] lgKeys = { "el", "en", "auto" };
+    String[] lgNames = { "🇬🇷 Ελληνικά", "🇬🇧 English", "🌐 Αυτόματα (γλώσσα κινητού)" };
+    int lcur = "en".equals(lg) ? 1 : "auto".equals(lg) ? 2 : 0;
+    ap.addView(settingRow("Γλώσσα / Language", lgNames[lcur], () -> new AlertDialog.Builder(this).setTitle("Γλώσσα / Language")
+        .setSingleChoiceItems(lgNames, lcur, (d, w) -> {
+          d.dismiss();
+          if (w != lcur) {
+            prefs.edit().putString("lang", lgKeys[w]).apply();
+            T.init(this);
+            new Thread(() -> TodayWidget.updateAll(getApplicationContext())).start();
+            recreate();
+          }
+        }).show()));
     body.addView(ap);
 
-    section("🔔 Ειδοποιήσεις", null, null);
+    section(T.t("🔔 Ειδοποιήσεις"), null, null);
     LinearLayout n = card();
-    n.addView(toggle("Ημερήσια ειδοποίηση", "Κάθε μέρα στην ώρα που ορίζεις", "notifications", true, on -> {
+    n.addView(toggle(T.t("Ημερήσια ειδοποίηση"), T.t("Κάθε μέρα στην ώρα που ορίζεις"), "notifications", true, on -> {
       if (on) askNotifications();
       ReminderReceiver.schedule(this);
     }));
     n.addView(divider());
-    n.addView(settingRow("Ώρα ειδοποίησης", String.format(EL, "%02d:%02d", prefs.getInt("hour", 9), prefs.getInt("minute", 0)), () ->
+    n.addView(settingRow(T.t("Ώρα ειδοποίησης"), String.format(EL, "%02d:%02d", prefs.getInt("hour", 9), prefs.getInt("minute", 0)), () ->
         new TimePickerDialog(this, (v, h, m) -> {
           prefs.edit().putInt("hour", h).putInt("minute", m).apply();
           ReminderReceiver.schedule(this);
           render();
         }, prefs.getInt("hour", 9), prefs.getInt("minute", 0), true).show()));
     n.addView(divider());
-    n.addView(toggle("Ονομαστικές γιορτές της ημέρας", "«Σήμερα γιορτάζουν: …» κάθε πρωί", "notifyNames", true, null));
+    n.addView(toggle(T.t("Ονομαστικές γιορτές της ημέρας"), T.t("«Σήμερα γιορτάζουν: …» κάθε πρωί"), "notifyNames", true, null));
     n.addView(divider());
-    n.addView(toggle("Μόνο όταν γιορτάζει επαφή μου", "Λιγότερες ειδοποιήσεις, μόνο για τους δικούς σου", "onlyContacts", false, null));
+    n.addView(toggle(T.t("Μόνο όταν γιορτάζει επαφή μου"), T.t("Λιγότερες ειδοποιήσεις, μόνο για τους δικούς σου"), "onlyContacts", false, null));
     n.addView(divider());
     int lead = prefs.getInt("lead", 1);
-    n.addView(settingRow("Προειδοποίηση για τα «Δικά μου»", lead == 0 ? "Μόνο την ημέρα" : lead + (lead == 1 ? " ημέρα πριν" : " ημέρες πριν"), () -> {
-      String[] o = { "Μόνο την ημέρα", "1 ημέρα πριν", "2 ημέρες πριν", "3 ημέρες πριν", "1 εβδομάδα πριν" };
+    n.addView(settingRow(T.t("Προειδοποίηση για τα «Δικά μου»"), lead == 0 ? T.t("Μόνο την ημέρα") : lead + (lead == 1 ? T.t(" ημέρα πριν") : T.t(" ημέρες πριν")), () -> {
+      String[] o = { T.t("Μόνο την ημέρα"), T.t("1 ημέρα πριν"), T.t("2 ημέρες πριν"), T.t("3 ημέρες πριν"), T.t("1 εβδομάδα πριν") };
       int[] v = { 0, 1, 2, 3, 7 };
-      new AlertDialog.Builder(this).setTitle("Προειδοποίηση").setItems(o, (d, w) -> { prefs.edit().putInt("lead", v[w]).apply(); render(); }).show();
+      new AlertDialog.Builder(this).setTitle(T.t("Προειδοποίηση")).setItems(o, (d, w) -> { prefs.edit().putInt("lead", v[w]).apply(); render(); }).show();
     }));
     n.addView(divider());
     int s1 = prefs.getInt("snooze1", 60), s2 = prefs.getInt("snooze2", 180);
-    n.addView(settingRow("Κουμπιά αναβολής (snooze)", ReminderReceiver.label(s1) + " · " + ReminderReceiver.label(s2), () -> {
-      String[] o = { "15′ και 1 ώρα", "30′ και 2 ώρες", "1 ώρα και 3 ώρες", "2 ώρες και 5 ώρες" };
+    n.addView(settingRow(T.t("Κουμπιά αναβολής (snooze)"), ReminderReceiver.label(s1) + " · " + ReminderReceiver.label(s2), () -> {
+      String[] o = { T.t("15′ και 1 ώρα"), T.t("30′ και 2 ώρες"), T.t("1 ώρα και 3 ώρες"), T.t("2 ώρες και 5 ώρες") };
       int[][] v = { { 15, 60 }, { 30, 120 }, { 60, 180 }, { 120, 300 } };
-      new AlertDialog.Builder(this).setTitle("Αναβολή ειδοποίησης").setItems(o, (d, w) -> {
+      new AlertDialog.Builder(this).setTitle(T.t("Αναβολή ειδοποίησης")).setItems(o, (d, w) -> {
         prefs.edit().putInt("snooze1", v[w][0]).putInt("snooze2", v[w][1]).apply();
         render();
       }).show();
     }));
     n.addView(divider());
-    n.addView(settingRow("Δοκιμαστική ειδοποίηση", "Δες πώς φαίνεται τώρα", () -> {
+    n.addView(settingRow(T.t("Δοκιμαστική ειδοποίηση"), T.t("Δες πώς φαίνεται τώρα"), () -> {
       if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) { askNotifications(); return; }
       new Thread(() -> {
         boolean ok = ReminderReceiver.post(getApplicationContext(), false);
-        runOnUiThread(() -> toast(ok ? "Στάλθηκε ✓" : "Τίποτα για σήμερα (ή οι ειδοποιήσεις είναι κλειστές)"));
+        runOnUiThread(() -> toast(ok ? T.t("Στάλθηκε ✓") : T.t("Τίποτα για σήμερα (ή οι ειδοποιήσεις είναι κλειστές)")));
       }).start();
     }));
     body.addView(n);
 
-    section("🔋 Μπαταρία", null, null);
+    section(T.t("🔋 Μπαταρία"), null, null);
     LinearLayout bt = card();
     boolean ok = batteryOk();
-    bt.addView(settingRow(ok ? "✓ Χωρίς περιορισμούς" : "⚠️ Περιορισμένη από το σύστημα",
-        ok ? "Οι ειδοποιήσεις θα έρχονται στην ώρα τους" : "Πάτα για εξαίρεση — αλλιώς η ειδοποίηση μπορεί να καθυστερεί", this::askBattery));
-    TextView note = tv("Η εφαρμογή δεν τρέχει στο παρασκήνιο: ξυπνάει μία φορά την ημέρα για λίγα δευτερόλεπτα. Σε Xiaomi/Huawei/Samsung ενεργοποίησε επίσης την «Αυτόματη εκκίνηση» αν υπάρχει.", 12, sub, false);
+    bt.addView(settingRow(ok ? T.t("✓ Χωρίς περιορισμούς") : T.t("⚠️ Περιορισμένη από το σύστημα"),
+        ok ? T.t("Οι ειδοποιήσεις θα έρχονται στην ώρα τους") : T.t("Πάτα για εξαίρεση — αλλιώς η ειδοποίηση μπορεί να καθυστερεί"), this::askBattery));
+    TextView note = tv(T.t("Η εφαρμογή δεν τρέχει στο παρασκήνιο: ξυπνάει μία φορά την ημέρα για λίγα δευτερόλεπτα. Σε Xiaomi/Huawei/Samsung ενεργοποίησε επίσης την «Αυτόματη εκκίνηση» αν υπάρχει."), 12, sub, false);
     note.setPadding(0, dp(10), 0, 0);
     bt.addView(note);
     body.addView(bt);
 
-    section("👥 Επαφές & ευχές", null, null);
+    section(T.t("👥 Επαφές & ευχές"), null, null);
     LinearLayout ct = card();
-    ct.addView(toggle("Συγχρονισμός επαφών", ContactSync.granted(this) ? "Ταίριασμα ονομάτων & γενεθλίων" : "Χρειάζεται άδεια — πάτα για ενεργοποίηση", "contacts", true, on -> {
+    ct.addView(toggle(T.t("Συγχρονισμός επαφών"), ContactSync.granted(this) ? T.t("Ταίριασμα ονομάτων & γενεθλίων") : T.t("Χρειάζεται άδεια — πάτα για ενεργοποίηση"), "contacts", true, on -> {
       ContactSync.invalidate();
       if (on && !ContactSync.granted(this)) askContacts();
     }));
@@ -1328,47 +1353,47 @@ public class MainActivity extends Activity {
     ct.addView(autoSmsToggle());
     if (prefs.getBoolean("autoSms", false)) {
       ct.addView(divider());
-      ct.addView(settingRow("Σε ποιους στέλνει αυτόματα", AutoWishes.modeLabel(prefs.getString("autoSmsMode", AutoWishes.MODE_BOTH)), () -> chooseAutoMode(null)));
+      ct.addView(settingRow(T.t("Σε ποιους στέλνει αυτόματα"), AutoWishes.modeLabel(prefs.getString("autoSmsMode", AutoWishes.MODE_BOTH)), () -> chooseAutoMode(null)));
       ct.addView(divider());
-      ct.addView(toggle("Ερώτηση πριν την αποστολή", "Ειδοποίηση με [Αποστολή τώρα] / [Όχι σήμερα] — αλλιώς στέλνονται μόνα τους σε 1 ώρα", "autoSmsConfirm", true, null));
+      ct.addView(toggle(T.t("Ερώτηση πριν την αποστολή"), T.t("Ειδοποίηση με [Αποστολή τώρα] / [Όχι σήμερα] — αλλιώς στέλνονται μόνα τους σε 1 ώρα"), "autoSmsConfirm", true, null));
       ct.addView(divider());
       int nb = AutoWishes.blocked(this).size();
-      ct.addView(settingRow("Ποιες επαφές παίρνουν SMS", nb == 0 ? "Όλες (καμία εξαίρεση)" : nb + (nb == 1 ? " επαφή εξαιρείται" : " επαφές εξαιρούνται"), this::chooseSmsContacts));
+      ct.addView(settingRow(T.t("Ποιες επαφές παίρνουν SMS"), nb == 0 ? T.t("Όλες (καμία εξαίρεση)") : nb + (nb == 1 ? T.t(" επαφή εξαιρείται") : T.t(" επαφές εξαιρούνται")), this::chooseSmsContacts));
       ct.addView(divider());
-      ct.addView(settingRow("Ιστορικό αυτόματων SMS", "Τι στάλθηκε και πότε", () ->
-          new AlertDialog.Builder(this).setTitle("Ιστορικό αποστολών").setMessage(AutoWishes.history(this)).setPositiveButton("OK", null).show()));
+      ct.addView(settingRow(T.t("Ιστορικό αυτόματων SMS"), T.t("Τι στάλθηκε και πότε"), () ->
+          new AlertDialog.Builder(this).setTitle(T.t("Ιστορικό αποστολών")).setMessage(AutoWishes.history(this)).setPositiveButton("OK", null).show()));
     }
     ct.addView(divider());
-    ct.addView(settingRow("🎉 Μηνύματα για γιορτή", tplSummary("tplNameday", Wishes.DEFAULT_NAMEDAY), () -> editTemplate("tplNameday", Wishes.DEFAULT_NAMEDAY, "Μηνύματα για γιορτή")));
+    ct.addView(settingRow(T.t("🎉 Μηνύματα για γιορτή"), tplSummary("tplNameday", Wishes.defNameday()), () -> editTemplate("tplNameday", Wishes.defNameday(), T.t("Μηνύματα για γιορτή"))));
     ct.addView(divider());
-    ct.addView(settingRow("🎂 Μηνύματα για γενέθλια", tplSummary("tplBirthday", Wishes.DEFAULT_BIRTHDAY), () -> editTemplate("tplBirthday", Wishes.DEFAULT_BIRTHDAY, "Μηνύματα για γενέθλια")));
+    ct.addView(settingRow(T.t("🎂 Μηνύματα για γενέθλια"), tplSummary("tplBirthday", Wishes.defBirthday()), () -> editTemplate("tplBirthday", Wishes.defBirthday(), T.t("Μηνύματα για γενέθλια"))));
     ct.addView(divider());
     int nc = prefs.getStringSet("closeSet", Collections.emptySet()).size();
-    ct.addView(settingRow("❤️ Μηνύματα για οικογένεια & φίλους", tplSummary("tplClose", Wishes.DEFAULT_CLOSE)
-        + " · " + (nc == 0 ? "κανείς ακόμα — από το ⋯ της επαφής" : nc + (nc == 1 ? " άτομο" : " άτομα")), () -> editTemplate("tplClose", Wishes.DEFAULT_CLOSE, "Οικογένεια & φίλοι")));
+    ct.addView(settingRow(T.t("❤️ Μηνύματα για οικογένεια & φίλους"), tplSummary("tplClose", Wishes.defClose())
+        + " · " + (nc == 0 ? T.t("κανείς ακόμα — από το ⋯ της επαφής") : nc + (nc == 1 ? T.t(" άτομο") : T.t(" άτομα"))), () -> editTemplate("tplClose", Wishes.defClose(), T.t("Οικογένεια & φίλοι"))));
     body.addView(ct);
 
-    section("⬆️ Ενημερώσεις", null, null);
+    section(T.t("⬆️ Ενημερώσεις"), null, null);
     LinearLayout up = card();
-    up.addView(toggle("Αυτόματος έλεγχος", "Κάθε φορά που ανοίγεις την εφαρμογή (ανά 6 ώρες)", "autoUpdate", true, null));
+    up.addView(toggle(T.t("Αυτόματος έλεγχος"), T.t("Κάθε φορά που ανοίγεις την εφαρμογή (ανά 6 ώρες)"), "autoUpdate", true, null));
     up.addView(divider());
-    up.addView(settingRow("Έλεγχος τώρα", "Έκδοση " + OtaUpdater.currentVersion(this), () -> OtaUpdater.check(this, true)));
+    up.addView(settingRow(T.t("Έλεγχος τώρα"), T.t("Έκδοση ") + OtaUpdater.currentVersion(this), () -> OtaUpdater.check(this, true)));
     body.addView(up);
-    section("💾 Αντίγραφο ασφαλείας", null, null);
+    section(T.t("💾 Αντίγραφο ασφαλείας"), null, null);
     LinearLayout bk = card();
-    bk.addView(settingRow("Αποθήκευση αντιγράφου", "«Δικά μου», μηνύματα, εξαιρέσεις → αρχείο (π.χ. στο Drive)", () -> {
+    bk.addView(settingRow(T.t("Αποθήκευση αντιγράφου"), T.t("«Δικά μου», μηνύματα, εξαιρέσεις → αρχείο (π.χ. στο Drive)"), () -> {
       Intent i = new Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("application/json")
           .putExtra(Intent.EXTRA_TITLE, "eortologio-backup-" + LocalDate.now() + ".json");
-      try { startActivityForResult(i, RC_EXPORT); } catch (Exception ex) { toast("Δεν υποστηρίζεται σε αυτή τη συσκευή"); }
+      try { startActivityForResult(i, RC_EXPORT); } catch (Exception ex) { toast(T.t("Δεν υποστηρίζεται σε αυτή τη συσκευή")); }
     }));
     bk.addView(divider());
-    bk.addView(settingRow("Επαναφορά από αντίγραφο", "Διάλεξε το αρχείο .json", () -> {
+    bk.addView(settingRow(T.t("Επαναφορά από αντίγραφο"), T.t("Διάλεξε το αρχείο .json"), () -> {
       Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*");
-      try { startActivityForResult(i, RC_IMPORT); } catch (Exception ex) { toast("Δεν υποστηρίζεται σε αυτή τη συσκευή"); }
+      try { startActivityForResult(i, RC_IMPORT); } catch (Exception ex) { toast(T.t("Δεν υποστηρίζεται σε αυτή τη συσκευή")); }
     }));
     body.addView(bk);
 
-    section("ℹ️ Σχετικά", null, null);
+    section(T.t("ℹ️ Σχετικά"), null, null);
     LinearLayout ab = card();
     LinearLayout head = row();
     TextView logo = tv("🎉", 26, Color.WHITE, false);
@@ -1377,19 +1402,19 @@ public class MainActivity extends Activity {
     head.addView(logo, new LinearLayout.LayoutParams(dp(56), dp(56)));
     LinearLayout ht = col();
     ht.setPadding(dp(14), 0, 0, 0);
-    ht.addView(tv("Εορτολόγιο+", 18, ink, true));
-    ht.addView(tv("Έκδοση " + OtaUpdater.currentVersion(this), 13, sub, false));
+    ht.addView(tv(T.t("Εορτολόγιο+"), 18, ink, true));
+    ht.addView(tv(T.t("Έκδοση ") + OtaUpdater.currentVersion(this), 13, sub, false));
     head.addView(ht, new LinearLayout.LayoutParams(0, -2, 1));
     ab.addView(head);
-    TextView by = tv("Ανάπτυξη: Νικόλαος Κ. Παρίδης\nALU DEV TEAM · Πτολεμαΐδα", 14, ink, false);
+    TextView by = tv(T.t("Ανάπτυξη: Νικόλαος Κ. Παρίδης\nALU DEV TEAM · Πτολεμαΐδα"), 14, ink, false);
     by.setPadding(0, dp(14), 0, dp(4));
     ab.addView(by);
-    ab.addView(tv("Ελληνικό εορτολόγιο με υπενθυμίσεις και ευχές στις επαφές σου. Όλα τα δεδομένα μένουν στη συσκευή.", 13, sub, false));
+    ab.addView(tv(T.t("Ελληνικό εορτολόγιο με υπενθυμίσεις και ευχές στις επαφές σου. Όλα τα δεδομένα μένουν στη συσκευή."), 13, sub, false));
     ab.addView(divider());
     ab.addView(settingRow("GitHub", "github.com/nikkpap/EortologioGR", () ->
         startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/nikkpap/EortologioGR")))));
     ab.addView(divider());
-    ab.addView(settingRow("Τι νέο", "Σημειώσεις εκδόσεων", () ->
+    ab.addView(settingRow(T.t("Τι νέο"), T.t("Σημειώσεις εκδόσεων"), () ->
         startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/nikkpap/EortologioGR/releases")))));
     TextView cp = tv("© " + LocalDate.now().getYear() + " ALU DEV TEAM", 12, sub, false);
     cp.setGravity(Gravity.CENTER);
@@ -1398,7 +1423,7 @@ public class MainActivity extends Activity {
     body.addView(ab);
 
     if (prefs.getBoolean("guideDone", false)) {
-      TextView g = tv("Εμφάνιση οδηγού ρύθμισης ξανά", 14, accent, true);
+      TextView g = tv(T.t("Εμφάνιση οδηγού ρύθμισης ξανά"), 14, accent, true);
       g.setPadding(dp(4), dp(12), 0, 0);
       g.setOnClickListener(v -> { prefs.edit().putBoolean("guideDone", false).apply(); page = "today"; render(); });
       body.addView(g);
@@ -1412,17 +1437,17 @@ public class MainActivity extends Activity {
     LinearLayout r = row();
     r.setPadding(0, dp(6), 0, dp(6));
     LinearLayout t = col();
-    t.addView(tv("✉️ Αυτόματες ευχές με SMS", 15, ink, true));
+    t.addView(tv(T.t("✉️ Αυτόματες ευχές με SMS"), 15, ink, true));
     boolean on = prefs.getBoolean("autoSms", false);
-    String d = on ? (AutoWishes.hasPermission(this) ? "Ενεργό · στέλνει κάθε μέρα στις " + String.format(EL, "%02d:%02d", prefs.getInt("hour", 9), prefs.getInt("minute", 0))
-        : "⚠️ Λείπει η άδεια SMS — πάτα για ενεργοποίηση") : "Στέλνει μόνο του «Χρόνια πολλά» σε όσους γιορτάζουν";
+    String d = on ? (AutoWishes.hasPermission(this) ? T.t("Ενεργό · στέλνει κάθε μέρα στις ") + String.format(EL, "%02d:%02d", prefs.getInt("hour", 9), prefs.getInt("minute", 0))
+        : T.t("⚠️ Λείπει η άδεια SMS — πάτα για ενεργοποίηση")) : T.t("Στέλνει μόνο του «Χρόνια πολλά» σε όσους γιορτάζουν");
     t.addView(tv(d, 12, on && !AutoWishes.hasPermission(this) ? pink : sub, false));
     r.addView(t, new LinearLayout.LayoutParams(0, -2, 1));
     Switch sw = new Switch(this);
     sw.setChecked(on);
     sw.setOnClickListener(v -> {
       if (sw.isChecked()) { sw.setChecked(false); confirmAutoSms(); }
-      else { prefs.edit().putBoolean("autoSms", false).apply(); toast("Οι αυτόματες ευχές απενεργοποιήθηκαν"); render(); }
+      else { prefs.edit().putBoolean("autoSms", false).apply(); toast(T.t("Οι αυτόματες ευχές απενεργοποιήθηκαν")); render(); }
     });
     r.addView(sw);
     r.setOnClickListener(v -> sw.performClick());
@@ -1430,17 +1455,17 @@ public class MainActivity extends Activity {
   }
 
   void confirmAutoSms() {
-    if (!ContactSync.granted(this)) { toast("Σύνδεσε πρώτα τις επαφές"); askContacts(); return; }
+    if (!ContactSync.granted(this)) { toast(T.t("Σύνδεσε πρώτα τις επαφές")); askContacts(); return; }
     new AlertDialog.Builder(this)
-        .setTitle("⚠️ Αυτόματη αποστολή SMS")
-        .setMessage("Κάθε μέρα στις " + String.format(EL, "%02d:%02d", prefs.getInt("hour", 9), prefs.getInt("minute", 0))
-            + " η εφαρμογή θα στέλνει ΜΟΝΗ ΤΗΣ SMS «Χρόνια πολλά» στις επαφές που γιορτάζουν ή έχουν γενέθλια.\n\n"
-            + "• Μπορεί να υπάρξουν ΧΡΕΩΣΕΙΣ από τον πάροχό σου (ανάλογα με το πρόγραμμά σου).\n"
-            + "• Ένα SMS ανά άτομο την ημέρα, έως " + AutoWishes.DAILY_LIMIT + " την ημέρα.\n"
-            + "• Θα βλέπεις ειδοποίηση με το σε ποιους στάλθηκαν και ιστορικό στις Ρυθμίσεις.\n\n"
-            + "Θέλεις να το ενεργοποιήσεις;")
-        .setNegativeButton("Όχι", null)
-        .setPositiveButton("Ναι, συνέχεια", (d, w) -> chooseAutoMode(() -> {
+        .setTitle(T.t("⚠️ Αυτόματη αποστολή SMS"))
+        .setMessage(T.t("Κάθε μέρα στις ") + String.format(EL, "%02d:%02d", prefs.getInt("hour", 9), prefs.getInt("minute", 0))
+            + T.t(" η εφαρμογή θα στέλνει ΜΟΝΗ ΤΗΣ SMS «Χρόνια πολλά» στις επαφές που γιορτάζουν ή έχουν γενέθλια.\n\n")
+            + T.t("• Μπορεί να υπάρξουν ΧΡΕΩΣΕΙΣ από τον πάροχό σου (ανάλογα με το πρόγραμμά σου).\n")
+            + T.t("• Ένα SMS ανά άτομο την ημέρα, έως ") + AutoWishes.DAILY_LIMIT + T.t(" την ημέρα.\n")
+            + T.t("• Θα βλέπεις ειδοποίηση με το σε ποιους στάλθηκαν και ιστορικό στις Ρυθμίσεις.\n\n")
+            + T.t("Θέλεις να το ενεργοποιήσεις;"))
+        .setNegativeButton(T.t("Όχι"), null)
+        .setPositiveButton(T.t("Ναι, συνέχεια"), (d, w) -> chooseAutoMode(() -> {
           if (AutoWishes.hasPermission(this)) enableAutoSms();
           else requestPermissions(new String[] { Manifest.permission.SEND_SMS }, RC_SMS);
         })).show();
@@ -1448,38 +1473,38 @@ public class MainActivity extends Activity {
 
   void chooseAutoMode(Runnable then) {
     String[] keys = { AutoWishes.MODE_NAMEDAY, AutoWishes.MODE_BIRTHDAY, AutoWishes.MODE_BOTH };
-    String[] names = { "🎉 Μόνο σε όσους γιορτάζουν", "🎂 Μόνο σε όσους έχουν γενέθλια", "🎉🎂 Και στα δύο" };
+    String[] names = { T.t("🎉 Μόνο σε όσους γιορτάζουν"), T.t("🎂 Μόνο σε όσους έχουν γενέθλια"), T.t("🎉🎂 Και στα δύο") };
     String cur = prefs.getString("autoSmsMode", AutoWishes.MODE_BOTH);
     int sel = cur.equals(keys[0]) ? 0 : cur.equals(keys[1]) ? 1 : 2;
-    new AlertDialog.Builder(this).setTitle("Σε ποιους να στέλνει;")
+    new AlertDialog.Builder(this).setTitle(T.t("Σε ποιους να στέλνει;"))
         .setSingleChoiceItems(names, sel, (d, w) -> {
           prefs.edit().putString("autoSmsMode", keys[w]).apply();
           d.dismiss();
           if (then != null) then.run(); else render();
-        }).setNegativeButton("Άκυρο", null).show();
+        }).setNegativeButton(T.t("Άκυρο"), null).show();
   }
 
   /** Λίστα επαφών με γιορτή/γενέθλια: τσεκαρισμένη = παίρνει αυτόματο SMS. */
   void chooseSmsContacts() {
     List<ContactSync.Person> ppl = new ArrayList<>();
     for (ContactSync.Person p : ContactSync.load(this)) if (p.phone != null) ppl.add(p);
-    if (ppl.isEmpty()) { toast("Δεν βρέθηκαν επαφές με γιορτή/γενέθλια και τηλέφωνο"); return; }
+    if (ppl.isEmpty()) { toast(T.t("Δεν βρέθηκαν επαφές με γιορτή/γενέθλια και τηλέφωνο")); return; }
     String[] names = new String[ppl.size()];
     boolean[] checked = new boolean[ppl.size()];
     Set<String> block = AutoWishes.blocked(this);
     for (int i = 0; i < ppl.size(); i++) {
       ContactSync.Person p = ppl.get(i);
-      String what = p.canon.isEmpty() ? "γενέθλια" : TextUtils.join("/", p.canon);
+      String what = p.canon.isEmpty() ? T.t("γενέθλια") : TextUtils.join("/", p.canon);
       names[i] = p.displayName + "  ·  " + what;
       checked[i] = !block.contains(AutoWishes.blockKey(p));
     }
-    AlertDialog dlg = new AlertDialog.Builder(this).setTitle("✅ = παίρνει αυτόματο SMS")
+    AlertDialog dlg = new AlertDialog.Builder(this).setTitle(T.t("✅ = παίρνει αυτόματο SMS"))
         .setMultiChoiceItems(names, checked, (d, w, on) -> checked[w] = on)
-        .setNeutralButton("Όλοι / Κανένας", null)
-        .setNegativeButton("Άκυρο", null)
-        .setPositiveButton("Αποθήκευση", (d, w) -> {
+        .setNeutralButton(T.t("Όλοι / Κανένας"), null)
+        .setNegativeButton(T.t("Άκυρο"), null)
+        .setPositiveButton(T.t("Αποθήκευση"), (d, w) -> {
           for (int i = 0; i < ppl.size(); i++) AutoWishes.setBlocked(this, ppl.get(i), !checked[i]);
-          toast("Αποθηκεύτηκε ✓");
+          toast(T.t("Αποθηκεύτηκε ✓"));
           render();
         }).create();
     dlg.setOnShowListener(x -> dlg.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener(v -> {
@@ -1493,7 +1518,7 @@ public class MainActivity extends Activity {
   void enableAutoSms() {
     prefs.edit().putBoolean("autoSms", true).apply();
     ReminderReceiver.schedule(this);
-    toast("Οι αυτόματες ευχές ενεργοποιήθηκαν ✓");
+    toast(T.t("Οι αυτόματες ευχές ενεργοποιήθηκαν ✓"));
     render();
   }
 
@@ -1543,7 +1568,7 @@ public class MainActivity extends Activity {
 
   String tplSummary(String key, String def) {
     int n = Wishes.templates(this, key, def).size();
-    return n == 1 ? "1 μήνυμα" : n + " μηνύματα (εναλλάσσονται)";
+    return n == 1 ? T.t("1 μήνυμα") : n + T.t(" μηνύματα (εναλλάσσονται)");
   }
 
   void editTemplate(String key, String def, String title) {
@@ -1555,14 +1580,14 @@ public class MainActivity extends Activity {
     e.setTextSize(14);
     LinearLayout f = col();
     f.setPadding(dp(22), dp(8), dp(22), 0);
-    f.addView(tv("Ένα μήνυμα σε κάθε γραμμή. Κάθε άτομο παίρνει διαφορετικό. Το {name} γίνεται το όνομα στην κλητική (π.χ. «Νίκο», «Γιώργο»).", 12, sub, false));
+    f.addView(tv(T.t("Ένα μήνυμα σε κάθε γραμμή. Κάθε άτομο παίρνει διαφορετικό. Το {name} γίνεται το όνομα στην κλητική (π.χ. «Νίκο», «Γιώργο»)."), 12, sub, false));
     f.addView(e);
     ScrollView sv = new ScrollView(this);
     sv.addView(f);
     new AlertDialog.Builder(this).setTitle(title).setView(sv)
-        .setNeutralButton("Έτοιμα μηνύματα", (d, w) -> { prefs.edit().remove(key).apply(); toast("Επαναφέρθηκαν τα έτοιμα μηνύματα"); render(); })
-        .setNegativeButton("Άκυρο", null)
-        .setPositiveButton("Αποθήκευση", (d, w) -> { prefs.edit().putString(key, e.getText().toString().trim()).apply(); toast("Αποθηκεύτηκε ✓"); render(); }).show();
+        .setNeutralButton(T.t("Έτοιμα μηνύματα"), (d, w) -> { prefs.edit().remove(key).apply(); toast(T.t("Επαναφέρθηκαν τα έτοιμα μηνύματα")); render(); })
+        .setNegativeButton(T.t("Άκυρο"), null)
+        .setPositiveButton(T.t("Αποθήκευση"), (d, w) -> { prefs.edit().putString(key, e.getText().toString().trim()).apply(); toast(T.t("Αποθηκεύτηκε ✓")); render(); }).show();
   }
 
   // ======================================================================
@@ -1577,7 +1602,7 @@ public class MainActivity extends Activity {
         prefs.edit().putBoolean("askedNotif", true).apply();
         requestPermissions(new String[] { Manifest.permission.POST_NOTIFICATIONS }, RC_NOTIF);
       }
-    } else toast("Οι ειδοποιήσεις είναι ήδη ενεργές ✓");
+    } else toast(T.t("Οι ειδοποιήσεις είναι ήδη ενεργές ✓"));
   }
 
   void askContacts() {
@@ -1592,18 +1617,18 @@ public class MainActivity extends Activity {
   }
 
   void askBattery() {
-    if (batteryOk()) { toast("Η μπαταρία είναι ήδη χωρίς περιορισμό ✓"); return; }
+    if (batteryOk()) { toast(T.t("Η μπαταρία είναι ήδη χωρίς περιορισμό ✓")); return; }
     try {
       startActivity(new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:" + getPackageName())));
     } catch (Exception e) {
       try { startActivity(new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)); }
-      catch (Exception e2) { openAppSettings("Βρες το Εορτολόγιο+ → Μπαταρία → «Χωρίς περιορισμούς»."); }
+      catch (Exception e2) { openAppSettings(T.t("Βρες το Εορτολόγιο+ → Μπαταρία → «Χωρίς περιορισμούς».")); }
     }
   }
 
   void openAppSettings(String msg) {
     Runnable go = () -> startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + getPackageName())));
     if (msg == null) { go.run(); return; }
-    new AlertDialog.Builder(this).setMessage(msg).setNegativeButton("Άκυρο", null).setPositiveButton("Ρυθμίσεις", (d, w) -> go.run()).show();
+    new AlertDialog.Builder(this).setMessage(msg).setNegativeButton(T.t("Άκυρο"), null).setPositiveButton(T.t("Ρυθμίσεις"), (d, w) -> go.run()).show();
   }
 }
