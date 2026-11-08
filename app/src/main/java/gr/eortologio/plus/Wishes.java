@@ -9,15 +9,55 @@ import android.widget.Toast;
 
 /** Ευχές «Χρόνια πολλά»: μήνυμα από πρότυπο και αποστολή μέσω SMS / WhatsApp / Viber / άλλης εφαρμογής. */
 final class Wishes {
-  static final String DEFAULT_NAMEDAY = "Χρόνια πολλά {name}! 🎉 Να χαίρεσαι το όνομά σου, με υγεία, αγάπη και ευτυχία!";
-  static final String DEFAULT_BIRTHDAY = "Χρόνια πολλά {name}! 🎂 Να τα εκατοστήσεις, με υγεία και χαρά!";
+  static final String DEFAULT_NAMEDAY = String.join("\n",
+      "Χρόνια πολλά {name}! 🎉 Να χαίρεσαι το όνομά σου, με υγεία, αγάπη και ευτυχία!",
+      "{name}, χρόνια πολλά για τη γιορτή σου! 🥳 Ό,τι επιθυμείς να γίνεται πραγματικότητα!",
+      "Χρόνια σου πολλά {name}! 🌟 Υγεία, χαρά και πολλές επιτυχίες!",
+      "Να χαίρεσαι το όνομά σου {name}! 🎊 Χρόνια πολλά και καλά!",
+      "Χρόνια πολλά {name}! 🎈 Να περάσεις υπέροχα σήμερα με τους δικούς σου ανθρώπους!",
+      "{name} χρόνια πολλά! 🍀 Πάντα γερός/γερή και ευτυχισμένος/η!");
+  static final String DEFAULT_BIRTHDAY = String.join("\n",
+      "Χρόνια πολλά {name}! 🎂 Να τα εκατοστήσεις, με υγεία και χαρά!",
+      "Happy birthday {name}! 🥳 Χρόνια πολλά, να είσαι πάντα καλά!",
+      "{name}, χρόνια πολλά για τα γενέθλιά σου! 🎉 Να έχεις μια χρονιά γεμάτη χαμόγελα!",
+      "Χρόνια πολλά {name}! 🎈 Υγεία, αγάπη και ό,τι ποθεί η καρδιά σου!",
+      "Να τα εκατοστήσεις {name}! 🎂 Μια όμορφη χρονιά σου εύχομαι!");
+  static final String DEFAULT_CLOSE = String.join("\n",
+      "Χρόνια πολλά {name} μου! ❤️ Να είσαι πάντα γερός/γερή και χαμογελαστός/ή, σε αγαπώ πολύ!",
+      "{name} μου χρόνια πολλά! 🤗 Ό,τι πιο όμορφο για σένα, σήμερα και πάντα!",
+      "Χρόνια πολλά αγαπημένε/η μου {name}! 💐 Να έχεις υγεία, αγάπη και πολλή χαρά!");
 
   private Wishes() {}
 
+  /** Μηνύματα (ένα ανά γραμμή) για τον τύπο. */
+  static java.util.List<String> templates(Context ctx, String key, String def) {
+    String raw = ctx.getSharedPreferences("settings", 0).getString(key, def);
+    java.util.List<String> out = new java.util.ArrayList<>();
+    for (String l : raw.split("\n")) if (!l.trim().isEmpty()) out.add(l.trim());
+    if (out.isEmpty()) for (String l : def.split("\n")) out.add(l.trim());
+    return out;
+  }
+
+  static boolean isClose(Context c, ContactSync.Person p) {
+    return c.getSharedPreferences("settings", 0).getStringSet("closeSet", java.util.Collections.emptySet()).contains(AutoWishes.blockKey(p));
+  }
+
+  static void setClose(Context c, ContactSync.Person p, boolean close) {
+    android.content.SharedPreferences sp = c.getSharedPreferences("settings", 0);
+    java.util.Set<String> s = new java.util.HashSet<>(sp.getStringSet("closeSet", java.util.Collections.emptySet()));
+    if (close) s.add(AutoWishes.blockKey(p)); else s.remove(AutoWishes.blockKey(p));
+    sp.edit().putStringSet("closeSet", s).apply();
+  }
+
+  /**
+   * Επιλέγει μήνυμα: οικογένεια/φίλοι → ζεστά μηνύματα, αλλιώς γιορτής ή γενεθλίων.
+   * Η επιλογή αλλάζει ανά άτομο και ανά χρονιά (δεν παίρνουν όλοι το ίδιο, ούτε ο ίδιος το ίδιο κάθε χρόνο).
+   */
   static String message(Context ctx, ContactSync.Hit h) {
-    android.content.SharedPreferences p = ctx.getSharedPreferences("settings", 0);
-    String tpl = h.birthday ? p.getString("tplBirthday", DEFAULT_BIRTHDAY) : p.getString("tplNameday", DEFAULT_NAMEDAY);
-    return tpl.replace("{name}", Names.vocative(h.person.callName()));
+    java.util.List<String> list = isClose(ctx, h.person) ? templates(ctx, "tplClose", DEFAULT_CLOSE)
+        : h.birthday ? templates(ctx, "tplBirthday", DEFAULT_BIRTHDAY) : templates(ctx, "tplNameday", DEFAULT_NAMEDAY);
+    int idx = Math.floorMod((AutoWishes.blockKey(h.person) + "|" + h.date.getYear() + "|" + h.birthday).hashCode(), list.size());
+    return list.get(idx).replace("{name}", Names.vocative(h.person.callName()));
   }
 
   static void sms(Activity a, ContactSync.Hit h) {

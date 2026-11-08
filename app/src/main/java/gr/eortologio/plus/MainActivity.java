@@ -1010,8 +1010,10 @@ public class MainActivity extends Activity {
   void wishMenu(ContactSync.Hit h) {
     String msg = Wishes.message(this, h);
     boolean blocked = AutoWishes.isBlocked(this, h.person);
+    boolean close = Wishes.isClose(this, h.person);
     String[] items = { "💬 SMS", "🟢 WhatsApp", "🟣 Viber", "📤 Άλλη εφαρμογή", "📞 Κλήση", "📋 Αντιγραφή μηνύματος",
-        blocked ? "✅ Να παίρνει αυτόματο SMS" : "🚫 Να μην παίρνει αυτόματο SMS" };
+        blocked ? "✅ Να παίρνει αυτόματο SMS" : "🚫 Να μην παίρνει αυτόματο SMS",
+        close ? "💔 Όχι πια οικογένεια/φίλος" : "❤️ Οικογένεια / φίλος (πιο ζεστή ευχή)" };
     new AlertDialog.Builder(this).setTitle(h.person.displayName + "\n«" + msg + "»").setItems(items, (d, w) -> {
       switch (w) {
         case 0: Wishes.sms(this, h); break;
@@ -1022,6 +1024,10 @@ public class MainActivity extends Activity {
         case 6:
           AutoWishes.setBlocked(this, h.person, !blocked);
           toast(blocked ? "Θα παίρνει αυτόματο SMS" : "Δεν θα παίρνει αυτόματο SMS");
+          break;
+        case 7:
+          Wishes.setClose(this, h.person, !close);
+          toast(close ? "Θα παίρνει κανονική ευχή" : "❤️ Θα παίρνει πιο ζεστή ευχή");
           break;
         default:
           android.content.ClipboardManager cm = (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
@@ -1237,9 +1243,13 @@ public class MainActivity extends Activity {
           new AlertDialog.Builder(this).setTitle("Ιστορικό αποστολών").setMessage(AutoWishes.history(this)).setPositiveButton("OK", null).show()));
     }
     ct.addView(divider());
-    ct.addView(settingRow("Μήνυμα για γιορτή", prefs.getString("tplNameday", Wishes.DEFAULT_NAMEDAY), () -> editTemplate("tplNameday", Wishes.DEFAULT_NAMEDAY)));
+    ct.addView(settingRow("🎉 Μηνύματα για γιορτή", tplSummary("tplNameday", Wishes.DEFAULT_NAMEDAY), () -> editTemplate("tplNameday", Wishes.DEFAULT_NAMEDAY, "Μηνύματα για γιορτή")));
     ct.addView(divider());
-    ct.addView(settingRow("Μήνυμα για γενέθλια", prefs.getString("tplBirthday", Wishes.DEFAULT_BIRTHDAY), () -> editTemplate("tplBirthday", Wishes.DEFAULT_BIRTHDAY)));
+    ct.addView(settingRow("🎂 Μηνύματα για γενέθλια", tplSummary("tplBirthday", Wishes.DEFAULT_BIRTHDAY), () -> editTemplate("tplBirthday", Wishes.DEFAULT_BIRTHDAY, "Μηνύματα για γενέθλια")));
+    ct.addView(divider());
+    int nc = prefs.getStringSet("closeSet", Collections.emptySet()).size();
+    ct.addView(settingRow("❤️ Μηνύματα για οικογένεια & φίλους", tplSummary("tplClose", Wishes.DEFAULT_CLOSE)
+        + " · " + (nc == 0 ? "κανείς ακόμα — από το ⋯ της επαφής" : nc + (nc == 1 ? " άτομο" : " άτομα")), () -> editTemplate("tplClose", Wishes.DEFAULT_CLOSE, "Οικογένεια & φίλοι")));
     body.addView(ct);
 
     section("⬆️ Ενημερώσεις", null, null);
@@ -1421,18 +1431,28 @@ public class MainActivity extends Activity {
     return v;
   }
 
-  void editTemplate(String key, String def) {
+  String tplSummary(String key, String def) {
+    int n = Wishes.templates(this, key, def).size();
+    return n == 1 ? "1 μήνυμα" : n + " μηνύματα (εναλλάσσονται)";
+  }
+
+  void editTemplate(String key, String def, String title) {
     EditText e = new EditText(this);
     e.setText(prefs.getString(key, def));
-    e.setMinLines(3);
+    e.setMinLines(6);
+    e.setGravity(Gravity.TOP);
+    e.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
+    e.setTextSize(14);
     LinearLayout f = col();
     f.setPadding(dp(22), dp(8), dp(22), 0);
+    f.addView(tv("Ένα μήνυμα σε κάθε γραμμή. Κάθε άτομο παίρνει διαφορετικό. Το {name} γίνεται το όνομα στην κλητική (π.χ. «Νίκο», «Γιώργο»).", 12, sub, false));
     f.addView(e);
-    f.addView(tv("Το {name} αντικαθίσταται αυτόματα με το όνομα στην κλητική (π.χ. «Νίκο», «Γιώργο»).", 12, sub, false));
-    new AlertDialog.Builder(this).setTitle("Μήνυμα ευχών").setView(f)
-        .setNeutralButton("Προεπιλογή", (d, w) -> { prefs.edit().remove(key).apply(); render(); })
+    ScrollView sv = new ScrollView(this);
+    sv.addView(f);
+    new AlertDialog.Builder(this).setTitle(title).setView(sv)
+        .setNeutralButton("Έτοιμα μηνύματα", (d, w) -> { prefs.edit().remove(key).apply(); toast("Επαναφέρθηκαν τα έτοιμα μηνύματα"); render(); })
         .setNegativeButton("Άκυρο", null)
-        .setPositiveButton("Αποθήκευση", (d, w) -> { prefs.edit().putString(key, e.getText().toString()).apply(); render(); }).show();
+        .setPositiveButton("Αποθήκευση", (d, w) -> { prefs.edit().putString(key, e.getText().toString().trim()).apply(); toast("Αποθηκεύτηκε ✓"); render(); }).show();
   }
 
   // ======================================================================
