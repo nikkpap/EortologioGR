@@ -16,12 +16,21 @@ for P in today calendar contacts personal settings today; do
   if adb shell pidof gr.eortologio.plus > /dev/null; then echo "PAGE_OK $P"; else echo "PAGE_CRASH $P"; FAIL=1; fi
 done
 adb shell input keyevent KEYCODE_HOME
+adb shell pm grant gr.eortologio.plus android.permission.SEND_SMS || true
+adb shell am force-stop gr.eortologio.plus
+printf '<?xml version="1.0" encoding="utf-8"?>\n<map><boolean name="autoSms" value="true" /><string name="autoSmsMode">both</string><boolean name="guideDone" value="true" /><boolean name="askedNotif" value="true" /></map>\n' > /tmp/settings.xml
+adb push /tmp/settings.xml /data/local/tmp/settings.xml
+adb shell chmod 644 /data/local/tmp/settings.xml
+adb shell run-as gr.eortologio.plus mkdir -p shared_prefs || true
+adb shell run-as gr.eortologio.plus cp /data/local/tmp/settings.xml shared_prefs/settings.xml || true
+adb shell run-as gr.eortologio.plus cat shared_prefs/settings.xml || true
 adb shell am broadcast -n gr.eortologio.plus/.ReminderReceiver -a gr.eortologio.plus.DAILY || true
 sleep 4
 adb shell dumpsys notification --noredact | grep -A3 "pkg=gr.eortologio.plus" | head -20 || true
 adb shell am broadcast -n gr.eortologio.plus/.ReminderReceiver -a gr.eortologio.plus.SNOOZE --ei minutes 1 || true
 sleep 3
 adb shell dumpsys alarm | grep -A2 "gr.eortologio.plus" | head -12 || true
-adb logcat -d | grep -E "FATAL|AndroidRuntime: |Caused by|at gr\.eortologio" | head -60 || true
+adb logcat -d | grep -E "FATAL|AndroidRuntime: |at gr\.eortologio|EortologioAutoSms" | head -60 || true
+adb logcat -d | grep -q "EortologioAutoSms.*sent to" && echo "AUTOSMS_OK" || echo "AUTOSMS_NOT_SENT"
 if adb logcat -d | grep -q "FATAL EXCEPTION"; then echo "SMOKE_FAILED"; exit 1; fi
 [ $FAIL = 0 ] && echo "SMOKE_PASSED"

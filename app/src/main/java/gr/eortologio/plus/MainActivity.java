@@ -119,6 +119,11 @@ public class MainActivity extends Activity {
 
   @Override public void onRequestPermissionsResult(int rc, String[] perms, int[] res) {
     super.onRequestPermissionsResult(rc, perms, res);
+    if (rc == RC_SMS) {
+      if (res.length > 0 && res[0] == PackageManager.PERMISSION_GRANTED) enableAutoSms();
+      else openAppSettings("Χωρίς την άδεια «SMS» δεν μπορούν να σταλούν αυτόματες ευχές. Ρυθμίσεις → Άδειες → SMS → Να επιτρέπεται.");
+      return;
+    }
     if (rc == RC_CONTACTS) {
       ContactSync.invalidate();
       if (res.length > 0 && res[0] == PackageManager.PERMISSION_GRANTED) {
@@ -1211,6 +1216,15 @@ public class MainActivity extends Activity {
       if (on && !ContactSync.granted(this)) askContacts();
     }));
     ct.addView(divider());
+    ct.addView(autoSmsToggle());
+    if (prefs.getBoolean("autoSms", false)) {
+      ct.addView(divider());
+      ct.addView(settingRow("Σε ποιους στέλνει αυτόματα", AutoWishes.modeLabel(prefs.getString("autoSmsMode", AutoWishes.MODE_BOTH)), () -> chooseAutoMode(null)));
+      ct.addView(divider());
+      ct.addView(settingRow("Ιστορικό αυτόματων SMS", "Τι στάλθηκε και πότε", () ->
+          new AlertDialog.Builder(this).setTitle("Ιστορικό αποστολών").setMessage(AutoWishes.history(this)).setPositiveButton("OK", null).show()));
+    }
+    ct.addView(divider());
     ct.addView(settingRow("Μήνυμα για γιορτή", prefs.getString("tplNameday", Wishes.DEFAULT_NAMEDAY), () -> editTemplate("tplNameday", Wishes.DEFAULT_NAMEDAY)));
     ct.addView(divider());
     ct.addView(settingRow("Μήνυμα για γενέθλια", prefs.getString("tplBirthday", Wishes.DEFAULT_BIRTHDAY), () -> editTemplate("tplBirthday", Wishes.DEFAULT_BIRTHDAY)));
@@ -1257,6 +1271,67 @@ public class MainActivity extends Activity {
       g.setOnClickListener(v -> { prefs.edit().putBoolean("guideDone", false).apply(); page = "today"; render(); });
       body.addView(g);
     }
+  }
+
+  private static final int RC_SMS = 14;
+
+  /** Διακόπτης αυτόματων SMS: πάντα με επιβεβαίωση και προειδοποίηση χρεώσεων. */
+  View autoSmsToggle() {
+    LinearLayout r = row();
+    r.setPadding(0, dp(6), 0, dp(6));
+    LinearLayout t = col();
+    t.addView(tv("✉️ Αυτόματες ευχές με SMS", 15, ink, true));
+    boolean on = prefs.getBoolean("autoSms", false);
+    String d = on ? (AutoWishes.hasPermission(this) ? "Ενεργό · στέλνει κάθε μέρα στις " + String.format(EL, "%02d:%02d", prefs.getInt("hour", 9), prefs.getInt("minute", 0))
+        : "⚠️ Λείπει η άδεια SMS — πάτα για ενεργοποίηση") : "Στέλνει μόνο του «Χρόνια πολλά» σε όσους γιορτάζουν";
+    t.addView(tv(d, 12, on && !AutoWishes.hasPermission(this) ? pink : sub, false));
+    r.addView(t, new LinearLayout.LayoutParams(0, -2, 1));
+    Switch sw = new Switch(this);
+    sw.setChecked(on);
+    sw.setOnClickListener(v -> {
+      if (sw.isChecked()) { sw.setChecked(false); confirmAutoSms(); }
+      else { prefs.edit().putBoolean("autoSms", false).apply(); toast("Οι αυτόματες ευχές απενεργοποιήθηκαν"); render(); }
+    });
+    r.addView(sw);
+    r.setOnClickListener(v -> sw.performClick());
+    return r;
+  }
+
+  void confirmAutoSms() {
+    if (!ContactSync.granted(this)) { toast("Σύνδεσε πρώτα τις επαφές"); askContacts(); return; }
+    new AlertDialog.Builder(this)
+        .setTitle("⚠️ Αυτόματη αποστολή SMS")
+        .setMessage("Κάθε μέρα στις " + String.format(EL, "%02d:%02d", prefs.getInt("hour", 9), prefs.getInt("minute", 0))
+            + " η εφαρμογή θα στέλνει ΜΟΝΗ ΤΗΣ SMS «Χρόνια πολλά» στις επαφές που γιορτάζουν ή έχουν γενέθλια.\n\n"
+            + "• Μπορεί να υπάρξουν ΧΡΕΩΣΕΙΣ από τον πάροχό σου (ανάλογα με το πρόγραμμά σου).\n"
+            + "• Ένα SMS ανά άτομο την ημέρα, έως " + AutoWishes.DAILY_LIMIT + " την ημέρα.\n"
+            + "• Θα βλέπεις ειδοποίηση με το σε ποιους στάλθηκαν και ιστορικό στις Ρυθμίσεις.\n\n"
+            + "Θέλεις να το ενεργοποιήσεις;")
+        .setNegativeButton("Όχι", null)
+        .setPositiveButton("Ναι, συνέχεια", (d, w) -> chooseAutoMode(() -> {
+          if (AutoWishes.hasPermission(this)) enableAutoSms();
+          else requestPermissions(new String[] { Manifest.permission.SEND_SMS }, RC_SMS);
+        })).show();
+  }
+
+  void chooseAutoMode(Runnable then) {
+    String[] keys = { AutoWishes.MODE_NAMEDAY, AutoWishes.MODE_BIRTHDAY, AutoWishes.MODE_BOTH };
+    String[] names = { "🎉 Μόνο σε όσους γιορτάζουν", "🎂 Μόνο σε όσους έχουν γενέθλια", "🎉🎂 Και στα δύο" };
+    String cur = prefs.getString("autoSmsMode", AutoWishes.MODE_BOTH);
+    int sel = cur.equals(keys[0]) ? 0 : cur.equals(keys[1]) ? 1 : 2;
+    new AlertDialog.Builder(this).setTitle("Σε ποιους να στέλνει;")
+        .setSingleChoiceItems(names, sel, (d, w) -> {
+          prefs.edit().putString("autoSmsMode", keys[w]).apply();
+          d.dismiss();
+          if (then != null) then.run(); else render();
+        }).setNegativeButton("Άκυρο", null).show();
+  }
+
+  void enableAutoSms() {
+    prefs.edit().putBoolean("autoSms", true).apply();
+    ReminderReceiver.schedule(this);
+    toast("Οι αυτόματες ευχές ενεργοποιήθηκαν ✓");
+    render();
   }
 
   interface OnToggle { void on(boolean v); }

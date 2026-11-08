@@ -67,11 +67,14 @@ public class ReminderReceiver extends BroadcastReceiver {
           case ACTION_SNOOZE: snooze(app, intent.getIntExtra(EXTRA_MIN, 60)); break;
           case ACTION_SHOW: {
             String day = intent.getStringExtra(EXTRA_DAY);
-            if (day == null || day.equals(LocalDate.now().toString())) post(app, true);
+            if (day == null || day.equals(LocalDate.now().toString())) post(app, true, null);
             break;
           }
           default:
-            try { post(app, false); } finally { schedule(app); }
+            try {
+              List<String> sent = AutoWishes.sendToday(app);
+              post(app, false, sent);
+            } finally { schedule(app); }
         }
       } catch (Exception ignored) {
       } finally {
@@ -101,7 +104,9 @@ public class ReminderReceiver extends BroadcastReceiver {
   }
 
   /** Συνθέτει και εμφανίζει την ειδοποίηση της ημέρας. Επιστρέφει false αν δεν υπάρχει τίποτα να ειπωθεί. */
-  static boolean post(Context ctx, boolean snoozed) {
+  static boolean post(Context ctx, boolean snoozed) { return post(ctx, snoozed, null); }
+
+  static boolean post(Context ctx, boolean snoozed, List<String> autoSent) {
     SharedPreferences sp = sp(ctx);
     if (!sp.getBoolean("notifications", true)) return false;
     if (Build.VERSION.SDK_INT >= 33 && ctx.checkSelfPermission("android.permission.POST_NOTIFICATIONS") != android.content.pm.PackageManager.PERMISSION_GRANTED) return false;
@@ -131,6 +136,8 @@ public class ReminderReceiver extends BroadcastReceiver {
       } else if (lead > 0 && d == lead) lines.add("⏳ Σε " + d + (d == 1 ? " ημέρα: " : " ημέρες: ") + e.title);
     }
 
+    if (autoSent != null && !autoSent.isEmpty())
+      lines.add(0, "✉️ Στάλθηκαν αυτόματα ευχές με SMS σε: " + String.join(", ", autoSent));
     boolean show = !lines.isEmpty() || !people.isEmpty() || (names && !onlyContacts && !todayNames.isEmpty());
     if (!show) return false;
 
