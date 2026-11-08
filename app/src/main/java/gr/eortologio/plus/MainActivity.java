@@ -69,9 +69,12 @@ public class MainActivity extends Activity {
 
   // ======================================================================
   @Override public void onCreate(Bundle b) {
+    prefs = getSharedPreferences("settings", 0);
+    String th = prefs.getString("theme", "auto");
+    if ("light".equals(th)) setTheme(R.style.AppTheme_Light);
+    else if ("dark".equals(th)) setTheme(R.style.AppTheme_Dark);
     super.onCreate(b);
     store = new EventStore(this);
-    prefs = getSharedPreferences("settings", 0);
     if (b != null) {
       page = b.getString("page", page);
       query = b.getString("query", "");
@@ -132,7 +135,9 @@ public class MainActivity extends Activity {
   // Παράθυρο, θέμα, insets (Android 15 edge-to-edge)
   // ======================================================================
   private void setupWindow() {
-    dark = (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
+    String th = prefs.getString("theme", "auto");
+    boolean systemDark = (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
+    dark = "dark".equals(th) || (!"light".equals(th) && systemDark);
     if (dark) {
       bg = 0xff0e0f1c; surface = 0xff1a1b2e; surface2 = 0xff25273f; ink = 0xfff2f2fb; sub = 0xffa5a8c4;
       accent = 0xffa59bff; accentSoft = 0x33a59bff; pink = 0xffff7ab6; green = 0xff4ade80; line = 0xff2c2e48;
@@ -1115,6 +1120,19 @@ public class MainActivity extends Activity {
   // ΡΥΘΜΙΣΕΙΣ
   // ======================================================================
   void settings() {
+    section("🎨 Εμφάνιση", null, null);
+    LinearLayout ap = card();
+    String th = prefs.getString("theme", "auto");
+    String[] thKeys = { "auto", "light", "dark" };
+    String[] thNames = { "🌗 Αυτόματο (όπως το κινητό)", "☀️ Φωτεινό", "🌙 Σκοτεινό" };
+    int cur = "light".equals(th) ? 1 : "dark".equals(th) ? 2 : 0;
+    ap.addView(settingRow("Θέμα", thNames[cur], () -> new AlertDialog.Builder(this).setTitle("Θέμα εμφάνισης")
+        .setSingleChoiceItems(thNames, cur, (d, w) -> {
+          d.dismiss();
+          if (w != cur) { prefs.edit().putString("theme", thKeys[w]).apply(); recreate(); }
+        }).setNegativeButton("Άκυρο", null).show()));
+    body.addView(ap);
+
     section("🔔 Ειδοποιήσεις", null, null);
     LinearLayout n = card();
     n.addView(toggle("Ημερήσια ειδοποίηση", "Κάθε μέρα στην ώρα που ορίζεις", "notifications", true, on -> {

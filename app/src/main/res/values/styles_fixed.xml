@@ -1,0 +1,17 @@
+<resources>
+    <!-- Σταθερά θέματα για την επιλογή «Φωτεινό» / «Σκοτεινό» στις Ρυθμίσεις (το AppTheme ακολουθεί το σύστημα) -->
+    <style name="AppTheme.Light" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:colorPrimary">#5B4FD8</item>
+        <item name="android:colorPrimaryDark">#4F46E5</item>
+        <item name="android:colorAccent">#5B4FD8</item>
+        <item name="android:windowBackground">@color/bg_light</item>
+    </style>
+    <style name="AppTheme.Dark" parent="android:Theme.Material.NoActionBar">
+        <item name="android:colorPrimary">#A59BFF</item>
+        <item name="android:colorPrimaryDark">#4F46E5</item>
+        <item name="android:colorAccent">#A59BFF</item>
+        <item name="android:windowBackground">@color/bg_dark</item>
+    </style>
+    <color name="bg_light">#F4F3FB</color>
+    <color name="bg_dark">#0E0F1C</color>
+</resources>
