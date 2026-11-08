@@ -1222,6 +1222,35 @@ public class MainActivity extends Activity {
     up.addView(divider());
     up.addView(settingRow("Έλεγχος τώρα", "Έκδοση " + OtaUpdater.currentVersion(this), () -> OtaUpdater.check(this, true)));
     body.addView(up);
+    section("ℹ️ Σχετικά", null, null);
+    LinearLayout ab = card();
+    LinearLayout head = row();
+    TextView logo = tv("🎉", 26, Color.WHITE, false);
+    logo.setGravity(Gravity.CENTER);
+    logo.setBackground(new GradientDrawable(GradientDrawable.Orientation.TL_BR, new int[] { G1, G2, G3 }) {{ setCornerRadius(dp(16)); }});
+    head.addView(logo, new LinearLayout.LayoutParams(dp(56), dp(56)));
+    LinearLayout ht = col();
+    ht.setPadding(dp(14), 0, 0, 0);
+    ht.addView(tv("Εορτολόγιο+", 18, ink, true));
+    ht.addView(tv("Έκδοση " + OtaUpdater.currentVersion(this), 13, sub, false));
+    head.addView(ht, new LinearLayout.LayoutParams(0, -2, 1));
+    ab.addView(head);
+    TextView by = tv("Ανάπτυξη: Νικόλαος Κ. Παρίδης\nALU DEV TEAM · Πτολεμαΐδα", 14, ink, false);
+    by.setPadding(0, dp(14), 0, dp(4));
+    ab.addView(by);
+    ab.addView(tv("Ελληνικό εορτολόγιο με υπενθυμίσεις και ευχές στις επαφές σου. Όλα τα δεδομένα μένουν στη συσκευή.", 13, sub, false));
+    ab.addView(divider());
+    ab.addView(settingRow("GitHub", "github.com/nikkpap/EortologioGR", () ->
+        startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/nikkpap/EortologioGR")))));
+    ab.addView(divider());
+    ab.addView(settingRow("Τι νέο", "Σημειώσεις εκδόσεων", () ->
+        startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/nikkpap/EortologioGR/releases")))));
+    TextView cp = tv("© " + LocalDate.now().getYear() + " ALU DEV TEAM", 12, sub, false);
+    cp.setGravity(Gravity.CENTER);
+    cp.setPadding(0, dp(12), 0, 0);
+    ab.addView(cp);
+    body.addView(ab);
+
     if (prefs.getBoolean("guideDone", false)) {
       TextView g = tv("Εμφάνιση οδηγού ρύθμισης ξανά", 14, accent, true);
       g.setPadding(dp(4), dp(12), 0, 0);

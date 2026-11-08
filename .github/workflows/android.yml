@@ -112,7 +112,15 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           MSG: ${{ github.event.head_commit.message }}
         run: |
-          printf '%s\n' "${MSG:-Νέα έκδοση}" > notes.md
+          # Σημειώσεις = μήνυμα commit χωρίς τεχνικές γραμμές (Co-Authored-By κ.λπ.)
+          printf '%s\n' "${MSG:-Νέα έκδοση}" | grep -v -E '^(Co-Authored-By|Claude-Session|Signed-off-by):|claude\.ai/code|Generated with' > notes.md || true
+          [ -s notes.md ] || echo "Νέα έκδοση" > notes.md
+          # Καθάρισμα και παλιών εκδόσεων
+          for t in $(gh api "repos/$GITHUB_REPOSITORY/releases" --jq '.[].tag_name'); do
+            body=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$t" --jq .body)
+            clean=$(printf '%s\n' "$body" | grep -v -E '^(Co-Authored-By|Claude-Session|Signed-off-by):|claude\.ai/code|Generated with' || true)
+            if [ "$body" != "$clean" ]; then gh release edit "$t" --notes "$clean"; fi
+          done
           gh release create "v$VERSION" dist/EortologioGR-v$VERSION.apk dist/SHA256SUMS.txt \
             --target "$GITHUB_SHA" --title "Εορτολόγιο+ v$VERSION" --notes-file notes.md --latest
 

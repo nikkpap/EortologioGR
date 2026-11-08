@@ -42,7 +42,8 @@ final class OtaUpdater {
           JSONObject as = assets.getJSONObject(i);
           if (as.optString("name").endsWith(".apk")) { apkUrl = as.optString("browser_download_url"); break; }
         }
-        final String url = apkUrl, page = j.optString("html_url"), notes = j.optString("body");
+        final String url = apkUrl, page = j.optString("html_url"),
+            notes = j.optString("body").replaceAll("(?m)^(Co-Authored-By|Claude-Session|Signed-off-by):.*$|^.*claude\\.ai/code.*$", "").trim();
         if (compare(tag, mine) <= 0) {
           if (manual) ui(a, () -> new AlertDialog.Builder(a).setTitle("Είσαι ενημερωμένος ✓")
               .setMessage("Έχεις την τελευταία έκδοση (" + mine + ").").setPositiveButton("OK", null).show());
