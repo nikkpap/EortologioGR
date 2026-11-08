@@ -1,0 +1,27 @@
+name: Publish signed Android Release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'release-assets/EortologioGR-v*.apk'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify signed APK integrity
+        run: |
+          test -f release-assets/EortologioGR-v1.0.0-release.apk
+          echo "ab94c0eddd51f1a2acdf35bc289c7b0eabe09a1ba4f8d7f22e5823b34fee4ad0  release-assets/EortologioGR-v1.0.0-release.apk" | sha256sum -c -
+      - name: Publish GitHub Release v1.0.0
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release view v1.0.0 >/dev/null 2>&1 || gh release create v1.0.0 --target main --title "Εορτολόγιο+ Android v1.0.0" --notes "First installable Android release (API 26+). Includes Greek calendar, editable local personal dates, daily notification scheduling and an in-app link to GitHub Releases. Built offline and signed with a separate release key. SHA-256: ab94c0eddd51f1a2acdf35bc289c7b0eabe09a1ba4f8d7f22e5823b34fee4ad0. Device testing still pending."
+          gh release upload v1.0.0 release-assets/EortologioGR-v1.0.0-release.apk --clobber
