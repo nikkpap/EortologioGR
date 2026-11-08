@@ -31,7 +31,7 @@ public final class EventStore {
   private void write(List<Event> es){JSONArray a=new JSONArray();for(Event e:es)try{a.put(e.json());}catch(Exception ignored){}prefs.edit().putString("personal",a.toString()).apply();}
   List<Event> all(Context ctx){List<Event> out=new ArrayList<>();load(ctx,"TODAY.DAT",false,out);load(ctx,"CUSTOM.INI",true,out);out.addAll(editable());return out;}
   private void load(Context ctx,String filename,boolean personal,List<Event> out){
-    try(BufferedReader br=new BufferedReader(new InputStreamReader(ctx.getAssets().open(filename),Charset.forName("windows-1253")))){
+    try(BufferedReader br=new BufferedReader(new InputStreamReader(ctx.getAssets().open(filename),java.nio.charset.StandardCharsets.UTF_8))){
       String line;int n=0;
       while((line=br.readLine())!=null){n++;String s=line.trim();if(s.isEmpty()||s.startsWith(";"))continue;String[] p=s.split("\\s+",2);if(p.length!=2)continue;
         try{boolean movable=p[0].startsWith("+")||p[0].startsWith("-");int day=1,month=1,offset=0;
