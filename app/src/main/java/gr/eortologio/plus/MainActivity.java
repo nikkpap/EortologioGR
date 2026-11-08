@@ -1176,7 +1176,7 @@ public class MainActivity extends Activity {
 
     section("⬆️ Ενημερώσεις", null, null);
     LinearLayout up = card();
-    up.addView(toggle("Αυτόματος έλεγχος", "Μία φορά την ημέρα από το GitHub", "autoUpdate", true, null));
+    up.addView(toggle("Αυτόματος έλεγχος", "Κάθε φορά που ανοίγεις την εφαρμογή (ανά 6 ώρες)", "autoUpdate", true, null));
     up.addView(divider());
     up.addView(settingRow("Έλεγχος τώρα", "Έκδοση " + OtaUpdater.currentVersion(this), () -> OtaUpdater.check(this, true)));
     body.addView(up);

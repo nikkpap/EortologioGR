@@ -23,11 +23,11 @@ final class OtaUpdater {
 
   private OtaUpdater() {}
 
-  /** manual=false: σιωπηλός έλεγχος το πολύ μία φορά τη μέρα, εμφανίζει διάλογο μόνο αν υπάρχει νεότερη έκδοση. */
+  /** manual=false: σιωπηλός έλεγχος το πολύ κάθε 6 ώρες, εμφανίζει διάλογο μόνο αν υπάρχει νεότερη έκδοση. */
   static void check(Activity a, boolean manual) {
     SharedPreferences sp = a.getSharedPreferences("settings", 0);
     long now = System.currentTimeMillis();
-    if (!manual && (!sp.getBoolean("autoUpdate", true) || now - sp.getLong("lastOta", 0) < 24 * 3600_000L)) return;
+    if (!manual && (!sp.getBoolean("autoUpdate", true) || now - sp.getLong("lastOta", 0) < 6 * 3600_000L)) return;
     if (running) return;
     running = true;
     sp.edit().putLong("lastOta", now).apply();

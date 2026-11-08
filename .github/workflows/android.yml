@@ -1,14 +1,28 @@
-name: Android CI
+name: Build & Release
+
+# push στο main → build → υπογραφή → GitHub Release → οι συσκευές ενημερώνονται (OTA)
+# pull request    → μόνο build (έλεγχος)
 on:
   push:
-    branches: [main, 'feature/**']
+    branches: [main]
+    paths-ignore: ['**/*.md', 'docs/**']
   pull_request:
   workflow_dispatch:
+
 permissions:
-  contents: read
+  contents: write
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      BUILD_NUMBER: ${{ github.run_number }}
+      # Πιστοποιητικό της εγκατεστημένης v1.0.0 — κάθε Release ΠΡΕΠΕΙ να έχει το ίδιο.
+      EXPECTED_CERT_SHA256: '76b4e155a32f4a7863c38deea141cc2175a573db725b00e3eeafa968c120112c'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -18,16 +32,69 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.11.1'
-      - name: Build debug APK
-        run: gradle --no-daemon :app:assembleDebug
-      - name: Build unsigned release APK
+
+      - name: Έκδοση
+        run: |
+          BASE=$(grep -oP '^appVersionBase=\K.*' gradle.properties | tr -d '[:space:]')
+          echo "VERSION=$BASE.$BUILD_NUMBER" >> "$GITHUB_ENV"
+          echo "Έκδοση: $BASE.$BUILD_NUMBER"
+
+      - name: Build (release, unsigned)
         run: gradle --no-daemon :app:assembleRelease
-      - uses: actions/upload-artifact@v4
+
+      - name: Θα βγει Release;
+        id: gate
+        env:
+          KS: ${{ secrets.SIGNING_KEYSTORE_BASE64 }}
+          MSG: ${{ github.event.head_commit.message }}
+        run: |
+          go=true
+          if [ "${{ github.event_name }}" = "pull_request" ]; then go=false; echo "Pull request → μόνο έλεγχος."; fi
+          if [ "${{ github.ref }}" != "refs/heads/main" ]; then go=false; fi
+          if printf '%s' "$MSG" | grep -q '\[no release\]'; then go=false; echo "[no release] στο μήνυμα → χωρίς έκδοση."; fi
+          if [ "$go" = true ] && [ -z "$KS" ]; then
+            go=false
+            echo "::warning::Λείπει το secret SIGNING_KEYSTORE_BASE64 → build χωρίς Release. Settings → Secrets and variables → Actions."
+          fi
+          echo "release=$go" >> "$GITHUB_OUTPUT"
+
+      - name: Υπογραφή + έλεγχος κλειδιού
+        if: steps.gate.outputs.release == 'true'
+        env:
+          KS: ${{ secrets.SIGNING_KEYSTORE_BASE64 }}
+          KS_PASS: ${{ secrets.SIGNING_STORE_PASSWORD }}
+          KEY_PASS: ${{ secrets.SIGNING_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
+        run: |
+          [ -n "$KS_PASS" ] || { echo "::error::Λείπει το secret SIGNING_STORE_PASSWORD (κωδικός του .p12)"; exit 1; }
+          printf '%s' "$KS" | tr -d '\r\n ' | base64 -d > "$RUNNER_TEMP/release.p12"
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          IN=$(ls app/build/outputs/apk/release/*.apk | head -1)
+          "$BT/zipalign" -f -p 4 "$IN" aligned.apk
+          OUT="EortologioGR-v$VERSION.apk"
+          ARGS=(--ks "$RUNNER_TEMP/release.p12" --ks-type PKCS12 --ks-pass env:KS_PASS)
+          [ -n "$KEY_ALIAS" ] && ARGS+=(--ks-key-alias "$KEY_ALIAS")
+          if [ -n "$KEY_PASS" ]; then ARGS+=(--key-pass env:KEY_PASS); else ARGS+=(--key-pass env:KS_PASS); fi
+          "$BT/apksigner" sign "${ARGS[@]}" --out "$OUT" aligned.apk
+          rm -f "$RUNNER_TEMP/release.p12"
+          "$BT/apksigner" verify --print-certs "$OUT" | tee certs.txt
+          GOT=$(grep -m1 'SHA-256 digest' certs.txt | awk '{print tolower($NF)}')
+          [ "$GOT" = "$EXPECTED_CERT_SHA256" ] || { echo "::error::Άλλο κλειδί ($GOT) — δεν θα εγκαθίσταται πάνω από την υπάρχουσα εφαρμογή. Έλεγξε το secret."; exit 1; }
+          mkdir -p dist && mv "$OUT" dist/ && (cd dist && sha256sum *.apk > SHA256SUMS.txt && cat SHA256SUMS.txt)
+
+      - name: GitHub Release (από εδώ το παίρνει το OTA)
+        if: steps.gate.outputs.release == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MSG: ${{ github.event.head_commit.message }}
+        run: |
+          printf '%s\n' "${MSG:-Νέα έκδοση}" > notes.md
+          gh release create "v$VERSION" dist/EortologioGR-v$VERSION.apk dist/SHA256SUMS.txt \
+            --target "$GITHUB_SHA" --title "Εορτολόγιο+ v$VERSION" --notes-file notes.md --latest
+
+      - name: Build χωρίς Release → APK ως artifact
+        if: steps.gate.outputs.release != 'true'
+        uses: actions/upload-artifact@v4
         with:
-          name: EortologioGR-unsigned-release
+          name: EortologioGR-unsigned-${{ env.VERSION }}
           path: app/build/outputs/apk/release/*.apk
-          if-no-files-found: error
-      - uses: actions/upload-artifact@v4
-        with:
-          name: EortologioGR-debug-apk
-          path: app/build/outputs/apk/debug/*.apk

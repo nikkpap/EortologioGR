@@ -1,30 +1,20 @@
 plugins { id("com.android.application") }
+
+// Έκδοση: appVersionBase (gradle.properties) + "." + αριθμός build του GitHub Actions.
+// Π.χ. base 1.1, run 12 → versionName 1.1.12, versionCode 101012. Τοπικό build: 1.1.0 / 101000.
+val base = (project.findProperty("appVersionBase") as String? ?: "1.1").trim()
+val build = System.getenv("BUILD_NUMBER")?.toIntOrNull() ?: 0
+val (maj, min) = base.split(".").let { (it.getOrNull(0)?.toIntOrNull() ?: 1) to (it.getOrNull(1)?.toIntOrNull() ?: 0) }
+
 android {
     namespace = "gr.eortologio.plus"
     compileSdk = 35
     defaultConfig {
-        applicationId = "gr.eortologio.plus"; minSdk = 26; targetSdk = 35
-        // ΜΟΝΟ αυτό αλλάζεις για νέα έκδοση. Το versionCode το βάζει αυτόματα το GitHub (αυξάνεται πάντα).
-        versionName = "1.1.0"
-        versionCode = System.getenv("VERSION_CODE")?.toIntOrNull() ?: 2
+        applicationId = "gr.eortologio.plus" // ΠΟΤΕ μην αλλάξει — αλλιώς δεν γίνεται ενημέρωση
+        minSdk = 26; targetSdk = 35
+        versionName = "$base.$build"
+        versionCode = maj * 100000 + min * 1000 + build
     }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
-
-    // Υπογραφή μόνο όταν υπάρχουν τα secrets (CI). Τοπικά/χωρίς κλειδί βγαίνει unsigned release.
-    val ksFile = System.getenv("SIGNING_KEYSTORE")
-    if (!ksFile.isNullOrBlank() && file(ksFile).exists()) {
-        signingConfigs {
-            create("release") {
-                storeFile = file(ksFile)
-                storeType = "pkcs12"
-                storePassword = System.getenv("SIGNING_STORE_PASSWORD")
-                keyAlias = System.getenv("SIGNING_KEY_ALIAS")
-                keyPassword = System.getenv("SIGNING_KEY_PASSWORD") ?: System.getenv("SIGNING_STORE_PASSWORD")
-                enableV1Signing = true
-                enableV2Signing = true
-                enableV3Signing = true
-            }
-        }
-        buildTypes { getByName("release") { signingConfig = signingConfigs.getByName("release") } }
-    }
+    // Η υπογραφή γίνεται στο CI με apksigner (secret SIGNING_KEYSTORE_BASE64), όχι εδώ.
 }
