@@ -140,11 +140,13 @@ public class MainActivity extends Activity {
       bg = 0xfff4f3fb; surface = 0xffffffff; surface2 = 0xffeeecfa; ink = 0xff17182c; sub = 0xff676b84;
       accent = 0xff5b4fd8; accentSoft = 0x1f5b4fd8; pink = 0xffdb2777; green = 0xff16a34a; line = 0xffe6e4f2;
     }
+    getWindow().getDecorView(); // δημιουργεί το παράθυρο πριν ζητηθεί ο insets controller (αλλιώς NPE)
     getWindow().setStatusBarColor(Color.TRANSPARENT);
     if (Build.VERSION.SDK_INT >= 30) {
       getWindow().setDecorFitsSystemWindows(false);
       getWindow().setNavigationBarColor(Color.TRANSPARENT);
-      WindowInsetsController c = getWindow().getInsetsController();
+      WindowInsetsController c = null;
+      try { c = getWindow().getInsetsController(); } catch (Exception ignored) { }
       if (c != null) c.setSystemBarsAppearance(dark ? 0 : WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS,
           WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS | WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS);
     } else {
