@@ -25,7 +25,7 @@ push στο main
         1. Έκδοση = appVersionBase (gradle.properties) + "." + run_number   π.χ. 1.1.12
         2. gradle :app:assembleRelease (unsigned)
         3. zipalign + apksigner με το secret SIGNING_KEYSTORE_BASE64 (+ SIGNING_STORE_PASSWORD)
-        4. Έλεγχος: SHA-256 πιστοποιητικού == 76b4e155…120112c (αυτό της v1.0.0)
+        4. Έλεγχος: SHA-256 πιστοποιητικού == 4c6357b5…a13c5ee1
         5. Release v<έκδοση>, asset EortologioGR-v<έκδοση>.apk + SHA256SUMS.txt, latest
   └─► Εφαρμογή (OtaUpdater)
         • api.github.com/repos/nikkpap/EortologioGR/releases/latest — στο άνοιγμα, το πολύ ανά 6 ώρες
@@ -48,11 +48,11 @@ push στο main
 
 | Στοιχείο | Τιμή |
 |---|---|
-| Κλειδί | αρχείο PKCS#12 (`.p12`), CN «EortologioGR Android Release» — **ποτέ στο git** (`.gitignore`) |
+| Κλειδί | `EortologioGR-release.p12` (EC P-256, alias `eortologio`, έως 2056) — **ποτέ στο git** (`.gitignore`). Από την v1.1· η v1.0.0 είχε άλλο κλειδί (χάθηκε) → μία φορά απεγκατάσταση |
 | Secret (υποχρεωτικό) | `SIGNING_KEYSTORE_BASE64` = base64 του `.p12` |
 | Secret (υποχρεωτικό) | `SIGNING_STORE_PASSWORD` = κωδικός του `.p12` |
 | Secrets (προαιρετικά) | `SIGNING_KEY_ALIAS` (αν το `.p12` έχει >1 κλειδί), `SIGNING_KEY_PASSWORD` (αν διαφέρει) |
-| SHA-256 πιστοποιητικού | `76:B4:E1:55:A3:2F:4A:78:63:C3:8D:EE:A1:41:CC:21:75:A5:73:DB:72:5B:00:E3:EE:AF:A9:68:C1:20:11:2C` |
+| SHA-256 πιστοποιητικού | `4C:63:57:B5:C6:F6:3B:34:27:31:08:87:B5:F3:32:0C:13:B4:11:CC:93:96:ED:4C:F3:26:41:34:A1:3C:5E:E1` |
 
 Τα secrets τα βάζει **μόνο ο ιδιοκτήτης** (τα agents δεν έχουν πρόσβαση):
 GitHub → repo → **Settings → Secrets and variables → Actions → New repository secret**.

@@ -21,8 +21,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       BUILD_NUMBER: ${{ github.run_number }}
-      # Πιστοποιητικό της εγκατεστημένης v1.0.0 — κάθε Release ΠΡΕΠΕΙ να έχει το ίδιο.
-      EXPECTED_CERT_SHA256: '76b4e155a32f4a7863c38deea141cc2175a573db725b00e3eeafa968c120112c'
+      # Πιστοποιητικό κλειδιού υπογραφής (από v1.1) — κάθε Release ΠΡΕΠΕΙ να έχει το ίδιο.
+      EXPECTED_CERT_SHA256: '4c6357b5c6f63b3427310887b5f3320c13b411cc9396ed4cf3264134a13c5ee1'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
