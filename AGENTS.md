@@ -22,6 +22,7 @@
 ```
 push στο main
   └─► «Build & Release»
+        0. Smoke test σε emulator (API 34): όλες οι οθόνες + ειδοποίηση — crash ⇒ καμία έκδοση
         1. Έκδοση = appVersionBase (gradle.properties) + "." + run_number   π.χ. 1.1.12
         2. gradle :app:assembleRelease (unsigned)
         3. zipalign + apksigner με το secret SIGNING_KEYSTORE_BASE64 (+ SIGNING_STORE_PASSWORD)
