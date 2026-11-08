@@ -970,13 +970,30 @@ public class MainActivity extends Activity {
   void addWishButton(LinearLayout parent, String label, boolean filled, Runnable r) {
     TextView b = button(label, filled, r);
     b.setPadding(dp(4), 0, dp(4), 0);
-    // Πάντα μία γραμμή: το κείμενο μικραίνει μόνο του αν δεν χωράει (μεγάλη γραμματοσειρά συστήματος)
-    b.setSingleLine(true);
-    b.setMaxLines(1);
-    b.setAutoSizeTextTypeUniformWithConfiguration(9, 14, 1, android.util.TypedValue.COMPLEX_UNIT_SP);
+    fitOneLine(b);
     LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(0, dp(44), label.equals("⋯") ? 0.55f : 1);
     p.rightMargin = dp(6);
     parent.addView(b, p);
+  }
+
+  /** Μία γραμμή, ολόκληρη η λέξη: μικραίνει τα γράμματα μέχρι να χωρέσουν στο πλάτος του κουμπιού. */
+  void fitOneLine(TextView t) {
+    t.setMaxLines(1);
+    t.setEllipsize(null);
+    final float max = t.getTextSize(), min = max * 0.55f;
+    t.addOnLayoutChangeListener((v, l, top, r, bot, ol, ot, or, ob) -> {
+      int avail = (r - l) - t.getPaddingLeft() - t.getPaddingRight();
+      if (avail <= 0) return;
+      String txt = t.getText().toString();
+      android.text.TextPaint p = new android.text.TextPaint(t.getPaint());
+      float size = max;
+      p.setTextSize(size);
+      while (size > min && p.measureText(txt) > avail) { size -= 0.5f; p.setTextSize(size); }
+      if (Math.abs(size - t.getTextSize()) > 0.1f) {
+        final float fs = size;
+        t.post(() -> t.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, fs));
+      }
+    });
   }
 
   View contactRow(ContactSync.Hit h, LocalDate today) {
