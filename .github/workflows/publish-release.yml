@@ -1,75 +1,92 @@
-name: Publish signed Android Release
+name: Release + OTA
 
-# Τρέχει όταν ανεβαίνει tag v* (π.χ. v1.1.0) ή χειροκίνητα από την καρτέλα Actions.
+# Αυτόματο: κάθε push στο main. Αν η έκδοση (versionName στο app/build.gradle.kts)
+# δεν έχει βγει ακόμα, φτιάχνει υπογεγραμμένο APK και το δημοσιεύει στα Releases.
+# Η εφαρμογή το βρίσκει μόνη της (OTA) και προτείνει «Ενημέρωση».
 on:
   push:
-    tags: ['v*']
+    branches: [main]
   workflow_dispatch:
-    inputs:
-      tag:
-        description: 'Tag έκδοσης (π.χ. v1.1.0)'
-        required: true
 
 permissions:
   contents: write
 
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
-  publish:
+  release:
     runs-on: ubuntu-latest
     env:
-      TAG: ${{ github.event.inputs.tag || github.ref_name }}
-      EXPECTED_CERT_SHA256: '76:B4:E1:55:A3:2F:4A:78:63:C3:8D:EE:A1:41:CC:21:75:A5:73:DB:72:5B:00:E3:EE:AF:A9:68:C1:20:11:2C'
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Πιστοποιητικό της v1.0.0 — η νέα έκδοση ΠΡΕΠΕΙ να έχει το ίδιο για να περνάει από πάνω.
+      EXPECTED_CERT_SHA256: '76b4e155a32f4a7863c38deea141cc2175a573db725b00e3eeafa968c120112c'
     steps:
       - uses: actions/checkout@v4
+
+      - name: Ποια έκδοση;
+        id: ver
+        run: |
+          VER=$(grep -oP 'versionName\s*=\s*"\K[^"]+' app/build.gradle.kts)
+          echo "Έκδοση: $VER"
+          echo "ver=$VER" >> "$GITHUB_OUTPUT"
+          if gh release view "v$VER" >/dev/null 2>&1; then
+            echo "Η v$VER υπάρχει ήδη – τίποτα να γίνει. (Για νέα κυκλοφορία άλλαξε το versionName.)"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Έλεγχος secrets
+        if: steps.ver.outputs.skip != 'true'
+        env:
+          A: ${{ secrets.KEYSTORE_BASE64 }}
+          B: ${{ secrets.KEYSTORE_PASSWORD }}
+          C: ${{ secrets.KEY_ALIAS }}
+        run: |
+          [ -n "$A" ] || { echo "::error::Λείπει το secret KEYSTORE_BASE64 (Settings → Secrets and variables → Actions)"; exit 1; }
+          [ -n "$B" ] || { echo "::error::Λείπει το secret KEYSTORE_PASSWORD"; exit 1; }
+          [ -n "$C" ] || { echo "::error::Λείπει το secret KEY_ALIAS"; exit 1; }
+          echo "$A" | base64 -d > "$RUNNER_TEMP/release.p12"
+          echo "SIGNING_KEYSTORE=$RUNNER_TEMP/release.p12" >> "$GITHUB_ENV"
+
       - uses: actions/setup-java@v4
+        if: steps.ver.outputs.skip != 'true'
         with:
           distribution: temurin
           java-version: '17'
       - uses: gradle/actions/setup-gradle@v4
+        if: steps.ver.outputs.skip != 'true'
         with:
           gradle-version: '8.11.1'
 
-      - name: Restore signing key from secrets
+      - name: Build υπογεγραμμένου APK
+        if: steps.ver.outputs.skip != 'true'
         env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
-        run: |
-          test -n "$KEYSTORE_BASE64" || { echo "::error::Λείπει το secret KEYSTORE_BASE64"; exit 1; }
-          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.p12"
-          echo "SIGNING_KEYSTORE=$RUNNER_TEMP/release.p12" >> "$GITHUB_ENV"
-
-      - name: Build signed release APK
-        env:
+          VERSION_CODE: ${{ github.run_number }}0
           SIGNING_STORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           SIGNING_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           SIGNING_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: gradle --no-daemon :app:assembleRelease
 
-      - name: Verify signature = same key as v1.0.0 (αλλιώς δεν περνάει πάνω από την παλιά)
+      - name: Έλεγχος ότι είναι το ΙΔΙΟ κλειδί με την εγκατεστημένη εφαρμογή
+        if: steps.ver.outputs.skip != 'true'
         run: |
-          APK=$(ls app/build/outputs/apk/release/*.apk | head -1)
+          APK=$(ls app/build/outputs/apk/release/*.apk | grep -v unsigned | head -1)
+          [ -n "$APK" ] || { echo "::error::Δεν βγήκε υπογεγραμμένο APK – έλεγξε KEY_ALIAS / κωδικούς"; exit 1; }
           SIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
           "$SIGNER" verify --print-certs "$APK" | tee certs.txt
-          GOT=$(grep -m1 'SHA-256 digest' certs.txt | awk '{print toupper($NF)}' | sed 's/../&:/g; s/:$//')
-          echo "Πιστοποιητικό: $GOT"
-          [ "$GOT" = "$EXPECTED_CERT_SHA256" ] || { echo "::error::Λάθος κλειδί υπογραφής – η ενημέρωση δεν θα εγκαθίσταται πάνω από τη v1.0.0"; exit 1; }
-          VER=${TAG#v}
-          cp "$APK" "EortologioGR-v$VER-release.apk"
-          sha256sum "EortologioGR-v$VER-release.apk" | tee sha256.txt
-          echo "APK_OUT=EortologioGR-v$VER-release.apk" >> "$GITHUB_ENV"
+          GOT=$(grep -m1 'SHA-256 digest' certs.txt | awk '{print tolower($NF)}')
+          [ "$GOT" = "$EXPECTED_CERT_SHA256" ] || { echo "::error::Άλλο κλειδί υπογραφής ($GOT) – δεν θα εγκαθίσταται πάνω από την υπάρχουσα εφαρμογή"; exit 1; }
+          OUT="EortologioGR-v${{ steps.ver.outputs.ver }}-release.apk"
+          cp "$APK" "$OUT"
+          sha256sum "$OUT" | tee sha256.txt
+          echo "APK_OUT=$OUT" >> "$GITHUB_ENV"
 
-      - name: Publish GitHub Release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Δημοσίευση στα Releases (από εδώ το παίρνει το OTA)
+        if: steps.ver.outputs.skip != 'true'
         run: |
+          TAG="v${{ steps.ver.outputs.ver }}"
           SHA=$(cut -d' ' -f1 sha256.txt)
-          NOTES="Εορτολόγιο+ $TAG
-
-          • Νέο σύγχρονο UI (φωτεινό/σκοτεινό), ημερολόγιο μήνα
-          • Αναζήτηση με κάθε γραφή (Γιώργος / Γεώργιος / Giorgos)
-          • Επαφές: ποιος γιορτάζει → «Χρόνια πολλά» με SMS / WhatsApp / Viber
-          • Ειδοποίηση με αναβολή (snooze) και κουμπί «Ευχές»
-          • Φιλικό στη μπαταρία, διορθώσεις (Αγ. Γεώργιος μετά το Πάσχα, Android 15 κ.ά.)
-
-          Εγκαθίσταται πάνω από την προηγούμενη έκδοση. SHA-256: $SHA"
-          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --target "$GITHUB_SHA" --title "Εορτολόγιο+ $TAG" --notes "$NOTES"
-          gh release upload "$TAG" "$APK_OUT" --clobber
+          printf '%s\n\n%s\n\nΕγκαθίσταται πάνω από την προηγούμενη έκδοση (ίδιο κλειδί υπογραφής).\nSHA-256: %s\n' \
+            "Εορτολόγιο+ $TAG" "$(git log -1 --pretty=%B | head -20)" "$SHA" > notes.md
+          gh release create "$TAG" "$APK_OUT" --target "$GITHUB_SHA" --title "Εορτολόγιο+ $TAG" --notes-file notes.md --latest

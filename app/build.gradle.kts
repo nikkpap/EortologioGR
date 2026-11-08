@@ -2,7 +2,12 @@ plugins { id("com.android.application") }
 android {
     namespace = "gr.eortologio.plus"
     compileSdk = 35
-    defaultConfig { applicationId = "gr.eortologio.plus"; minSdk = 26; targetSdk = 35; versionCode = 2; versionName = "1.1.0" }
+    defaultConfig {
+        applicationId = "gr.eortologio.plus"; minSdk = 26; targetSdk = 35
+        // ΜΟΝΟ αυτό αλλάζεις για νέα έκδοση. Το versionCode το βάζει αυτόματα το GitHub (αυξάνεται πάντα).
+        versionName = "1.1.0"
+        versionCode = System.getenv("VERSION_CODE")?.toIntOrNull() ?: 2
+    }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
 
     // Υπογραφή μόνο όταν υπάρχουν τα secrets (CI). Τοπικά/χωρίς κλειδί βγαίνει unsigned release.
