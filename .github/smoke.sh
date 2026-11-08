@@ -8,6 +8,11 @@ adb shell pm grant gr.eortologio.plus android.permission.READ_CONTACTS || true
 adb shell content insert --uri content://com.android.contacts/raw_contacts --bind account_type:n: --bind account_name:n: || true
 adb shell "content insert --uri content://com.android.contacts/data --bind raw_contact_id:i:1 --bind mimetype:s:vnd.android.cursor.item/name --bind data1:s:'Μιχάλης Παπάς' --bind data2:s:'Μιχάλης'" || true
 adb shell "content insert --uri content://com.android.contacts/data --bind raw_contact_id:i:1 --bind mimetype:s:vnd.android.cursor.item/phone_v2 --bind data1:s:6971234567 --bind data2:i:2" || true
+# χωρίς έλεγχο OTA στο τεστ (αλλιώς ο διάλογος «Νέα έκδοση» καλύπτει την οθόνη)
+printf '<?xml version="1.0" encoding="utf-8"?>\n<map><boolean name="autoUpdate" value="false" /><boolean name="askedNotif" value="true" /></map>\n' > /tmp/settings0.xml
+adb push /tmp/settings0.xml /data/local/tmp/settings.xml
+adb shell run-as gr.eortologio.plus mkdir -p shared_prefs || true
+adb shell run-as gr.eortologio.plus cp /data/local/tmp/settings.xml shared_prefs/settings.xml || true
 adb logcat -c
 FAIL=0
 for P in today calendar contacts personal settings today; do
@@ -22,7 +27,7 @@ adb shell cat /sdcard/u.xml | grep -q "Χρόνια πολλά" && echo "LANG_EL
 adb shell input keyevent KEYCODE_HOME
 adb shell pm grant gr.eortologio.plus android.permission.SEND_SMS || true
 adb shell am force-stop gr.eortologio.plus
-printf '<?xml version="1.0" encoding="utf-8"?>\n<map><boolean name="autoSms" value="true" /><string name="autoSmsMode">both</string><boolean name="guideDone" value="true" /><boolean name="askedNotif" value="true" /></map>\n' > /tmp/settings.xml
+printf '<?xml version="1.0" encoding="utf-8"?>\n<map><boolean name="autoSms" value="true" /><string name="autoSmsMode">both</string><boolean name="guideDone" value="true" /><boolean name="askedNotif" value="true" /><boolean name="autoUpdate" value="false" /></map>\n' > /tmp/settings.xml
 adb push /tmp/settings.xml /data/local/tmp/settings.xml
 adb shell chmod 644 /data/local/tmp/settings.xml
 adb shell run-as gr.eortologio.plus mkdir -p shared_prefs || true
@@ -42,7 +47,7 @@ adb logcat -d | grep -E "FATAL|AndroidRuntime: |at gr\.eortologio|EortologioAuto
 adb logcat -d | grep -q "EortologioAutoSms.*sent to" && echo "AUTOSMS_OK" || echo "AUTOSMS_NOT_SENT"
 # ---- Αγγλικά: όλες οι σελίδες + κείμενο
 adb shell am force-stop gr.eortologio.plus
-printf '<?xml version="1.0" encoding="utf-8"?>\n<map><string name="lang">en</string><boolean name="guideDone" value="true" /><boolean name="askedNotif" value="true" /></map>\n' > /tmp/settings_en.xml
+printf '<?xml version="1.0" encoding="utf-8"?>\n<map><string name="lang">en</string><boolean name="guideDone" value="true" /><boolean name="askedNotif" value="true" /><boolean name="autoUpdate" value="false" /></map>\n' > /tmp/settings_en.xml
 adb push /tmp/settings_en.xml /data/local/tmp/settings.xml
 adb shell run-as gr.eortologio.plus cp /data/local/tmp/settings.xml shared_prefs/settings.xml || true
 for P in today calendar contacts personal settings; do
