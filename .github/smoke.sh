@@ -9,6 +9,9 @@ adb shell pm grant gr.eortologio.plus android.permission.READ_CONTACTS || true
 adb shell content insert --uri content://com.android.contacts/raw_contacts --bind account_type:n: --bind account_name:n: || true
 adb shell "content insert --uri content://com.android.contacts/data --bind raw_contact_id:i:1 --bind mimetype:s:vnd.android.cursor.item/name --bind data1:s:'Μιχάλης Παπάς' --bind data2:s:'Μιχάλης'" || true
 adb shell "content insert --uri content://com.android.contacts/data --bind raw_contact_id:i:1 --bind mimetype:s:vnd.android.cursor.item/phone_v2 --bind data1:s:6971234567 --bind data2:i:2" || true
+# γενέθλια «σήμερα» → το τεστ αυτόματων SMS δουλεύει κάθε μέρα (όχι μόνο όταν γιορτάζει ο Μιχάλης)
+TODAY=$(adb shell date +%m-%d | tr -d '\r')
+adb shell "content insert --uri content://com.android.contacts/data --bind raw_contact_id:i:1 --bind mimetype:s:vnd.android.cursor.item/contact_event --bind data1:s:--$TODAY --bind data2:i:3" || true
 # χωρίς έλεγχο OTA στο τεστ (αλλιώς ο διάλογος «Νέα έκδοση» καλύπτει την οθόνη)
 printf '<?xml version="1.0" encoding="utf-8"?>\n<map><boolean name="autoUpdate" value="false" /><boolean name="askedNotif" value="true" /></map>\n' > /tmp/settings0.xml
 adb push /tmp/settings0.xml /data/local/tmp/settings.xml
@@ -20,6 +23,7 @@ for P in today calendar contacts personal settings today; do
   adb shell am start -W -n gr.eortologio.plus/.MainActivity --es page $P > /dev/null
   sleep 4
   if adb shell pidof gr.eortologio.plus > /dev/null; then echo "PAGE_OK $P"; else echo "PAGE_CRASH $P"; FAIL=1; fi
+  adb exec-out screencap -p > "screenshot-el-$P.png" || true
 done
 adb shell am start -W -n gr.eortologio.plus/.MainActivity --es page today > /dev/null
 sleep 3
@@ -48,13 +52,14 @@ adb logcat -d | grep -E "FATAL|AndroidRuntime: |at gr\.eortologio|EortologioAuto
 adb logcat -d | grep -q "EortologioAutoSms.*sent to" && echo "AUTOSMS_OK" || echo "AUTOSMS_NOT_SENT"
 # ---- Αγγλικά: όλες οι σελίδες + κείμενο
 adb shell am force-stop gr.eortologio.plus
-printf '<?xml version="1.0" encoding="utf-8"?>\n<map><string name="lang">en</string><boolean name="guideDone" value="true" /><boolean name="askedNotif" value="true" /><boolean name="autoUpdate" value="false" /></map>\n' > /tmp/settings_en.xml
+printf '<?xml version="1.0" encoding="utf-8"?>\n<map><string name="lang">en</string><string name="theme">dark</string><boolean name="guideDone" value="true" /><boolean name="askedNotif" value="true" /><boolean name="autoUpdate" value="false" /></map>\n' > /tmp/settings_en.xml
 adb push /tmp/settings_en.xml /data/local/tmp/settings.xml
 adb shell run-as gr.eortologio.plus cp /data/local/tmp/settings.xml shared_prefs/settings.xml || true
 for P in today calendar contacts personal settings; do
   adb shell am start -W -n gr.eortologio.plus/.MainActivity --es page $P > /dev/null
   sleep 3
   if adb shell pidof gr.eortologio.plus > /dev/null; then echo "EN_PAGE_OK $P"; else echo "EN_PAGE_CRASH $P"; FAIL=1; fi
+  adb exec-out screencap -p > "screenshot-en-$P.png" || true
 done
 adb shell am start -W -n gr.eortologio.plus/.MainActivity --es page today > /dev/null
 sleep 3
