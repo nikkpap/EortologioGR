@@ -10,11 +10,11 @@
 |---|---|
 | App | Εορτολόγιο+ — ονομαστικές γιορτές, επαφές & ευχές, ειδοποιήσεις |
 | applicationId | `gr.eortologio.plus` (**ποτέ μην το αλλάξεις**) |
-| Γλώσσα / UI | Java, Android views χωρίς εξαρτήσεις (κανένα AndroidX) |
-| minSdk / targetSdk / compileSdk | 26 / 35 / 35 · JDK 17 · AGP 8.9.2 · Gradle 8.11.1 |
+| Γλώσσα / UI | **Kotlin** + Jetpack Compose (Material 3) · coroutines · R8 στο release |
+| minSdk / targetSdk / compileSdk | 26 / 35 / 35 · JDK 17 · AGP 8.9.2 · Gradle 8.11.1 · Kotlin 2.1.0 · Compose BOM 2024.12.01 |
 | Repo | `github.com/nikkpap/EortologioGR` (**public**) · branch `main` |
 | Workflow | `.github/workflows/android.yml` («Build & Release») |
-| OTA | `OtaUpdater.java` (έλεγχος/λήψη) + `UpdateProvider.java` (δίνει το APK στον installer) |
+| OTA | `OtaUpdater.kt` (έλεγχος/λήψη) + `UpdateProvider.kt` (δίνει το APK στον installer) |
 | Δεδομένα | `assets/TODAY.DAT` (γιορτές), `assets/NAMES.DAT` (παραλλαγές/greeklish) |
 
 ## 2. Η ροή
@@ -66,15 +66,15 @@ GitHub → repo → **Settings → Secrets and variables → Actions → New rep
 - Force-push στο `main`, διαγραφή tags/Releases.
 
 ## 4. Εκδόσεις
-- `gradle.properties` → `appVersionBase=1.1` (μόνο αυτό αλλάζει ο άνθρωπος, π.χ. `1.2`).
+- `gradle.properties` → `appVersionBase=1.2` (μόνο αυτό αλλάζει ο άνθρωπος, π.χ. `1.2`).
 - CI: `versionName = <base>.<run>`, `versionCode = major*100000 + minor*1000 + run`.
 - Τοπικό build: `<base>.0` — πάντα μικρότερο από τα CI builds.
 - Μην κατεβάσεις ποτέ το `appVersionBase`· το `versionCode` πρέπει πάντα να ανεβαίνει.
 
 ## 5. Πώς δουλεύει ένα agent
 1. `git fetch origin main && git rebase origin/main`
-2. Αλλαγές. Κείμενα UI στα ελληνικά, απλά («για όλους»). Χρώματα από την παλέτα στο `MainActivity.setupWindow()`.
-3. Χωρίς Android SDK: compile-έλεγχος με `javac --release 17 -cp android.jar` (+ stub `R`), αλλιώς το **CI είναι ο compiler**.
+2. Αλλαγές. Κείμενα UI στα ελληνικά, απλά («για όλους»). Χρώματα από την παλέτα `LocalPal` (`Theme.kt`).
+3. Χωρίς Android SDK: τα αρχεία χωρίς Compose ελέγχονται με `kotlinc -cp android.jar` (+ stub `R`)· για όλα τα υπόλοιπα **το CI είναι ο compiler** (άνοιξε PR → τρέχει build + smoke χωρίς έκδοση).
 4. **Commit στα ελληνικά** — το μήνυμα γίνεται οι σημειώσεις του Release:
    ```
    Σύντομος τίτλος
@@ -91,7 +91,10 @@ GitHub → repo → **Settings → Secrets and variables → Actions → New rep
 6. Αναφορά στον χρήστη: ποια έκδοση βγήκε και τι αλλάζει.
 
 ## 6. Συμβάσεις κώδικα
-- Χωρίς εξωτερικές βιβλιοθήκες (μικρό APK, γρήγορο build).
+- Μόνο AndroidX/Compose/coroutines — καμία άλλη βιβλιοθήκη (μικρό APK με R8).
+- Δομή: `Repo.kt` = όλοι οι υπολογισμοί οθονών (τρέχουν στο παρασκήνιο με `rememberLoad`) · `*Screen.kt` = οθόνες · `Dialogs.kt` = διάλογοι/φύλλα · `Components.kt` + `Theme.kt` = κοινά στοιχεία/παλέτα · `AppViewModel.kt` = κατάσταση & OTA.
+- Ποτέ βαριά δουλειά (επαφές, ευρετήρια) στο main thread· ποτέ ατέρμονες animations (σπάει το `uiautomator` του smoke test).
+- Κλειδιά SharedPreferences (`settings`, `events`) και ονόματα κλάσεων του manifest μένουν ίδια — αλλιώς χάνονται δεδομένα χρηστών.
 - **Γλώσσες:** κάθε κείμενο UI γράφεται `T.t("ελληνικά")` και η αγγλική μετάφραση μπαίνει στον πίνακα του `T.java`. Ημερομηνίες με `T.locale()`. Ρύθμιση `lang` = el (προεπιλογή) / en / auto. Το smoke test ελέγχει και τις δύο γλώσσες.
 - Δεδομένα: `TODAY.DAT` → `Η/Μ Όνομα` ή `+Ν/-Ν Όνομα` (από το Πάσχα), `"…"` = αργία. Επίσημο όνομα· τα υποκοριστικά στο `NAMES.DAT`.
 - Κανόνας Αγ. Γεωργίου/Μάρκου στο `EventStore.Event.onYear()` — μην τον αφαιρέσεις.

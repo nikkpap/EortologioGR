@@ -7,8 +7,8 @@ Native Greek Android name-day and personal dates calendar.
 
 Supports Android 8.0+ (API 26+). Installs as `gr.eortologio.plus`.
 
-## Features (v1.1.0)
-- **Modern UI** with light/dark theme, gradient header, month grid calendar, edge-to-edge (Android 15 ready)
+## Features (v1.2)
+- **Rewritten in Kotlin + Jetpack Compose (Material 3)**: modern UI, light/dark theme, swipeable month calendar, bottom sheets, edge-to-edge (Android 15 ready); all heavy work runs in the background
 - **Search** by any spelling: Γιώργος / Γεώργιος / Giorgos / George — accent-insensitive, greeklish aware
 - **Contacts sync**: shows which contacts celebrate a name day or birthday; one-tap "Χρόνια πολλά" via SMS, WhatsApp, Viber or any app, with the name in the vocative (Νίκο, Γιώργο, Αλέξανδρε)
 - **Daily notification** "Σήμερα γιορτάζουν" with **snooze** buttons (configurable) and a "Ευχές" shortcut
@@ -19,7 +19,7 @@ Supports Android 8.0+ (API 26+). Installs as `gr.eortologio.plus`.
 - OTA: checks GitHub Releases, downloads and installs the signed APK (same signing key required)
 
 ## Build
-Android Studio, JDK 17, Android Gradle Plugin 8.9.2, Gradle 8.11.1.
+Android Studio, JDK 17, Kotlin 2.1, Jetpack Compose (BOM 2024.12), Android Gradle Plugin 8.9.2, Gradle 8.11.1.
 Run `gradle :app:assembleDebug` to generate a development APK.
 Run `gradle :app:assembleRelease` for an **unsigned** release, then sign securely using the private release signing key.
 
