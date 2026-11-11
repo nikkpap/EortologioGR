@@ -59,7 +59,7 @@ fun Header(title: String, subtitle: String, emoji: String) {
         Column(Modifier.padding(end = 56.dp)) {
             Text(T.t("ΕΟΡΤΟΛΟΓΙΟ +"), color = Color.White.copy(alpha = 0.8f), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.2.sp)
             Text(title, color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 2.dp))
-            Text(subtitle, color = Color.White.copy(alpha = 0.9f), fontSize = 14.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(subtitle, color = Color.White.copy(alpha = 0.9f), fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }
@@ -202,20 +202,19 @@ fun ToggleRow(title: String, detail: String, checked: Boolean, icon: ImageVector
 @Composable
 fun Divider() = HorizontalDivider(Modifier.padding(vertical = 2.dp), thickness = 0.8.dp, color = LocalPal.current.line)
 
-/** Βήμα του οδηγού ρύθμισης. */
+/** Βήμα του οδηγού ρύθμισης (το κουμπί πάει κάτω από το κείμενο, ώστε να χωράει και σε μικρές οθόνες). */
 @Composable
 fun GuideStep(n: Int, title: String, detail: String, done: Boolean, onClick: () -> Unit) {
     val p = LocalPal.current
-    Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().padding(top = 12.dp)) {
         Box(Modifier.size(30.dp).clip(CircleShape).background(if (done) p.green else p.accent), contentAlignment = Alignment.Center) {
             Text(if (done) "✓" else n.toString(), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
         }
-        Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-            Text(title, color = p.ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+        Column(Modifier.weight(1f).padding(start = 12.dp)) {
+            Text(title + if (done) "  ✓" else "", color = if (done) p.green else p.ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
             Text(detail, color = p.sub, fontSize = 12.sp, lineHeight = 16.sp)
+            if (!done) MainButton(T.t("Ενεργοποίηση"), Modifier.padding(top = 6.dp), onClick = onClick)
         }
-        if (done) Text(T.t("Έτοιμο"), color = p.green, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-        else MainButton(T.t("Ενεργοποίηση"), onClick = onClick)
     }
 }
 

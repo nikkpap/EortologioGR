@@ -39,9 +39,6 @@ jobs:
           target: google_apis
           disable-animations: true
           script: bash .github/smoke.sh
-      - name: TEMP screenshots to log
-        if: always()
-        run: for f in screenshot-*.png; do echo "SHOT_BEGIN $f"; base64 -w 0 "$f"; echo; echo "SHOT_END"; done
       - uses: actions/upload-artifact@v4
         if: always()
         with:

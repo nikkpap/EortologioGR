@@ -1,7 +1,6 @@
 package gr.eortologio.plus
 
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
@@ -24,7 +23,6 @@ fun PersonalScreen(vm: AppViewModel) {
             AppCard {
                 EmptyState("🎂", T.t("Δεν έχεις προσθέσει ακόμα τίποτα"),
                     T.t("Πρόσθεσε γενέθλια, επετείους ή γιορτές που δεν υπάρχουν στο εορτολόγιο. Θα σε ειδοποιώ από την προηγούμενη μέρα."))
-                MainButton(T.t("+  Νέα ημερομηνία"), Modifier.fillMaxWidth()) { a.edit(EditRequest()) }
             }
         }
         items(list, key = { "e:" + it.first.id }) { (e, d) ->
