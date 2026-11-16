@@ -99,6 +99,7 @@ GitHub → repo → **Settings → Secrets and variables → Actions → New rep
 - Δεδομένα: `TODAY.DAT` → `Η/Μ Όνομα` ή `+Ν/-Ν Όνομα` (από το Πάσχα), `"…"` = αργία. Επίσημο όνομα· τα υποκοριστικά στο `NAMES.DAT`.
 - Κανόνας Αγ. Γεωργίου/Μάρκου στο `EventStore.Event.onYear()` — μην τον αφαιρέσεις.
 - Μπαταρία: **κανένα** background service. Ένα alarm/ημέρα (`setAndAllowWhileIdle`) + snooze.
+- Ευχές: «λέξη/κατάληξη» (ευτυχισμένος/η, γερός/γερή) → `Wishes.applyGender` με φύλο από `Names.gender` (ή χειροκίνητο `genderMap`).
 - Viber: δεν δέχεται κείμενο μέσω share → πρόχειρο + `viber://chat?number=` (μην το γυρίσεις σε ACTION_SEND).
 - Επαφές: μόνο ανάγνωση, τίποτα δεν αποθηκεύεται/ανεβαίνει εκτός συσκευής.
 - Αυτόματα SMS (`AutoWishes.kt`): **μόνο** με διακόπτη + επιβεβαίωση χρεώσεων, 1 SMS/αριθμό/ημέρα, όριο 40/ημέρα, ιστορικό. Μην τα κάνεις ποτέ default ενεργά.

@@ -4,6 +4,12 @@ import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
 import androidx.compose.foundation.background
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.Icons
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Icon
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -85,7 +91,9 @@ fun <R> rememberLoad(vararg keys: Any?, calc: () -> R): R? {
 fun WishSheet(h: Hit, onDismiss: () -> Unit) {
     val ctx = LocalContext.current
     val p = LocalPal.current
-    val msg = remember(h) { Wishes.message(ctx, h) }
+    var gOverride by remember { mutableStateOf(Wishes.genderOverride(ctx, h.person)) }
+    val autoG = remember(h) { Names.gender(h.person.callName()) }
+    val msg = remember(h, gOverride) { Wishes.message(ctx, h) }
     var blocked by remember { mutableStateOf(AutoWishes.isBlocked(ctx, h.person)) }
     var close by remember { mutableStateOf(Wishes.isClose(ctx, h.person)) }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = p.surface) {
@@ -101,6 +109,10 @@ fun WishSheet(h: Hit, onDismiss: () -> Unit) {
             Text("«$msg»", color = p.ink, fontSize = 15.sp, lineHeight = 21.sp,
                 modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(p.accentSoft).padding(14.dp))
             Spacer(Modifier.height(10.dp))
+            GenderChips(gOverride, autoG) { g ->
+                gOverride = g
+                Wishes.setGenderOverride(ctx, h.person, g)
+            }
             SheetRow("💬", T.t("Αποστολή με SMS")) { Wishes.sms(ctx, h) }
             SheetRow("🟢", "WhatsApp") { Wishes.whatsapp(ctx, h) }
             SheetRow("🟣", "Viber") { Wishes.viber(ctx, h) }
@@ -119,6 +131,24 @@ fun WishSheet(h: Hit, onDismiss: () -> Unit) {
                 Wishes.toast(ctx, if (it) T.t("Θα παίρνει αυτόματο SMS") else T.t("Δεν θα παίρνει αυτόματο SMS"))
             }
         }
+    }
+}
+
+/** Άνδρας / Γυναίκα / Αυτόματο — για τις λέξεις «ευτυχισμένος/η» κ.λπ. στην ευχή. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun GenderChips(current: String?, auto: Names.Gender?, onPick: (String?) -> Unit) {
+    val p = LocalPal.current
+    val autoLabel = T.t("🤖 Αυτόματο") + when (auto) {
+        Names.Gender.M -> T.t(" (άνδρας)")
+        Names.Gender.F -> T.t(" (γυναίκα)")
+        null -> T.t(" (άγνωστο)")
+    }
+    val colors = FilterChipDefaults.filterChipColors(selectedContainerColor = p.accentSoft, selectedLabelColor = p.accent)
+    FlowRow(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FilterChip(selected = current == null, onClick = { onPick(null) }, label = { Text(autoLabel) }, colors = colors)
+        FilterChip(selected = current == "m", onClick = { onPick("m") }, label = { Text(T.t("👨 Άνδρας")) }, colors = colors)
+        FilterChip(selected = current == "f", onClick = { onPick("f") }, label = { Text(T.t("👩 Γυναίκα")) }, colors = colors)
     }
 }
 
@@ -374,26 +404,55 @@ fun TimeDialog(hour: Int, minute: Int, onDismiss: () -> Unit, onPick: (Int, Int)
 }
 
 @Composable
-fun TemplateDialog(key: String, def: String, title: String, onDismiss: () -> Unit) {
+fun TemplateDialog(prefKey: String, def: String, title: String, onDismiss: () -> Unit) {
     val ctx = LocalContext.current
+    val p = LocalPal.current
     val sp = Prefs.sp(ctx)
-    var text by remember { mutableStateOf(sp.getString(key, def) ?: def) }
+    fun split(t: String) = t.lines().map { it.trim() }.filter { it.isNotEmpty() }
+    // Κάθε ευχή σε δικό της κουτί (αποθηκεύονται όπως πριν: μία ανά γραμμή)
+    val items = remember { mutableStateListOf<String>().apply { addAll(split(sp.getString(prefKey, def) ?: def).ifEmpty { split(def) }) } }
+    var nextId by remember { mutableIntStateOf(items.size) }
+    val ids = remember { mutableStateListOf<Int>().apply { repeat(items.size) { add(it) } } }
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = LocalPal.current.surface,
+        containerColor = p.surface,
         title = { Text(title) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
-                BodyText(T.t("Ένα μήνυμα σε κάθε γραμμή. Κάθε άτομο παίρνει διαφορετικό. Το {name} γίνεται το όνομα στην κλητική (π.χ. «Νίκο», «Γιώργο»)."), size = 13)
-                Spacer(Modifier.height(8.dp))
-                OutlinedTextField(text, { text = it }, Modifier.fillMaxWidth().heightIn(min = 160.dp), minLines = 6,
-                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences))
-                TextButton(onClick = { text = def }) { Text(T.t("Έτοιμα μηνύματα")) }
+                BodyText(T.t("Κάθε κουτί είναι μία ευχή — κάθε άτομο παίρνει διαφορετική. Το {name} γίνεται το όνομα στην κλητική (π.χ. «Νίκο», «Μαρία»)."), size = 13)
+                BodyText(T.t("👫 Γράψε «ευτυχισμένος/η», «γερός/γερή», «αγαπημένε/η» και μπαίνει αυτόματα η σωστή λέξη για άνδρα ή γυναίκα."),
+                    Modifier.padding(top = 4.dp, bottom = 8.dp), size = 13)
+                items.forEachIndexed { i, txt ->
+                    key(ids.getOrElse(i) { -1 - i }) {
+                        Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), verticalAlignment = Alignment.Top) {
+                            Text((i + 1).toString(), color = p.accent, fontWeight = FontWeight.Bold, fontSize = 15.sp,
+                                modifier = Modifier.padding(top = 16.dp).width(22.dp))
+                            OutlinedTextField(
+                                value = txt, onValueChange = { v -> items[i] = v.replace("\n", " ") },
+                                modifier = Modifier.weight(1f), minLines = 2,
+                                shape = RoundedCornerShape(14.dp),
+                                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+                            )
+                            IconButton(onClick = { items.removeAt(i); if (i < ids.size) ids.removeAt(i) }, enabled = items.size > 1) {
+                                Icon(Icons.Rounded.Delete, T.t("Διαγραφή"), tint = if (items.size > 1) p.pink else p.line)
+                            }
+                        }
+                    }
+                }
+                Row {
+                    TextButton(onClick = { items.add("Χρόνια πολλά {name}! 🎉 "); ids.add(nextId++) }) { Text(T.t("+ Νέα ευχή"), fontWeight = FontWeight.Bold) }
+                    TextButton(onClick = {
+                        items.clear(); ids.clear()
+                        split(def).forEach { items.add(it); ids.add(nextId++) }
+                    }) { Text(T.t("Έτοιμα μηνύματα")) }
+                }
             }
         },
         confirmButton = {
             TextButton(onClick = {
-                if (text.trim() == def.trim()) sp.edit().remove(key).apply() else sp.edit().putString(key, text.trim()).apply()
+                val text = items.map { it.trim() }.filter { it.isNotEmpty() }.joinToString("\n")
+                if (text.isEmpty() || text == split(def).joinToString("\n")) sp.edit().remove(prefKey).apply()
+                else sp.edit().putString(prefKey, text).apply()
                 Wishes.toast(ctx, T.t("Αποθηκεύτηκε ✓"))
                 onDismiss()
             }) { Text(T.t("Αποθήκευση"), fontWeight = FontWeight.Bold) }

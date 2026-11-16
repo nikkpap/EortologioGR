@@ -16,6 +16,7 @@ object Wishes {
         "Χρόνια σου πολλά {name}! 🌟 Υγεία, χαρά και πολλές επιτυχίες!",
         "Να χαίρεσαι το όνομά σου {name}! 🎊 Χρόνια πολλά και καλά!",
         "Χρόνια πολλά {name}! 🎈 Να περάσεις υπέροχα σήμερα με τους δικούς σου ανθρώπους!",
+        "Χρόνια πολλά {name}! 🌸 Να είσαι πάντα ευτυχισμένος/η και υγιής!",
         "{name} χρόνια πολλά! 🍀 Πάντα γερός/γερή και ευτυχισμένος/η!",
     ).joinToString("\n")
     private val BIRTHDAY_EL = listOf(
@@ -24,6 +25,7 @@ object Wishes {
         "{name}, χρόνια πολλά για τα γενέθλιά σου! 🎉 Να έχεις μια χρονιά γεμάτη χαμόγελα!",
         "Χρόνια πολλά {name}! 🎈 Υγεία, αγάπη και ό,τι ποθεί η καρδιά σου!",
         "Να τα εκατοστήσεις {name}! 🎂 Μια όμορφη χρονιά σου εύχομαι!",
+        "Χρόνια πολλά {name}! 🥂 Να είσαι πάντα γερός/γερή, ευτυχισμένος/η και πετυχημένος/η!",
     ).joinToString("\n")
     private val CLOSE_EL = listOf(
         "Χρόνια πολλά {name} μου! ❤️ Να είσαι πάντα γερός/γερή και χαμογελαστός/ή, σε αγαπώ πολύ!",
@@ -66,6 +68,48 @@ object Wishes {
         sp.edit().putStringSet("closeSet", s).apply()
     }
 
+    // ---------- Φύλο ----------
+    /** Χειροκίνητη επιλογή φύλου για μια επαφή ("m" / "f"), αλλιώς null = αυτόματο. */
+    fun genderOverride(c: Context, p: Person): String? =
+        (Prefs.sp(c).getStringSet("genderMap", emptySet()) ?: emptySet())
+            .firstOrNull { it.startsWith(p.key + "|") }?.substringAfterLast('|')
+
+    fun setGenderOverride(c: Context, p: Person, g: String?) {
+        val sp = Prefs.sp(c)
+        val s = (sp.getStringSet("genderMap", emptySet()) ?: emptySet()).filterNot { it.startsWith(p.key + "|") }.toMutableSet()
+        if (g != null) s.add(p.key + "|" + g)
+        sp.edit().putStringSet("genderMap", s).apply()
+    }
+
+    fun gender(c: Context, p: Person): Names.Gender? = when (genderOverride(c, p)) {
+        "m" -> Names.Gender.M
+        "f" -> Names.Gender.F
+        else -> Names.gender(p.callName())
+    }
+
+    private val SLASH = Regex("(\\p{IsGreek}+)/(\\p{IsGreek}+)")
+    private val MALE_ENDINGS = listOf("ος", "ός", "ας", "άς", "ης", "ής", "ες", "ές", "ε", "έ", "ο", "ό")
+
+    /**
+     * «ευτυχισμένος/η» → ευτυχισμένος ή ευτυχισμένη, «γερός/γερή», «αγαπημένε/η», «Αγαπητέ/ή», «ο/η», «τον/την».
+     * Αν το φύλο είναι άγνωστο, το κείμενο μένει όπως είναι (με την κάθετο).
+     */
+    fun applyGender(text: String, g: Names.Gender?): String {
+        if (g == null) return text
+        return SLASH.replace(text) { m ->
+            val a = m.groupValues[1]
+            val b = m.groupValues[2]
+            if (g == Names.Gender.M) return@replace a
+            if (b.length >= 3 || b.length >= a.length) {
+                // ολόκληρη λέξη (γερή, την) — κράτα το κεφαλαίο αρχικό αν το είχε το αρσενικό
+                return@replace if (a[0].isUpperCase() && b[0].isLowerCase()) b.replaceFirstChar { it.uppercaseChar() } else b
+            }
+            val low = a.lowercase(Names.EL)
+            val end = MALE_ENDINGS.sortedByDescending { it.length }.firstOrNull { low.endsWith(it) && it.length < a.length || low == it }
+            (if (end != null) a.dropLast(end.length) else a) + b
+        }
+    }
+
     /**
      * Επιλέγει μήνυμα: οικογένεια/φίλοι → ζεστά μηνύματα, αλλιώς γιορτής ή γενεθλίων.
      * Αλλάζει ανά άτομο και ανά χρονιά (δεν παίρνουν όλοι το ίδιο, ούτε ο ίδιος το ίδιο κάθε χρόνο).
@@ -77,7 +121,7 @@ object Wishes {
             else -> templates(ctx, "tplNameday", defNameday())
         }
         val idx = Math.floorMod((h.person.key + "|" + h.date.year + "|" + h.birthday).hashCode(), list.size)
-        return list[idx].replace("{name}", Names.vocative(h.person.callName()))
+        return applyGender(list[idx], gender(ctx, h.person)).replace("{name}", Names.vocative(h.person.callName()))
     }
 
     fun sms(ctx: Context, h: Hit) {

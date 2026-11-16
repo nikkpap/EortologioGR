@@ -184,6 +184,30 @@ object Names {
         return out
     }
 
+    enum class Gender { M, F }
+
+    /** Φύλο από την κατάληξη: -ος/-ας/-ης/-ων → άνδρας· -α/-η/-ω/-ού/-ις (Ελπίς, Άρτεμις) → γυναίκα. */
+    private fun wordGender(w: String): Gender {
+        val n = norm(w)
+        return when {
+            n.endsWith("ισ") -> Gender.F
+            n.endsWith("σ") || n.endsWith("ν") -> Gender.M
+            else -> Gender.F
+        }
+    }
+
+    /**
+     * Αυτόματη αναγνώριση φύλου από το μικρό όνομα (ελληνικά ή greeklish/λατινικά).
+     * Πρώτα από το επίσημο όνομα του NAMES.DAT (Γιώργος → Γεώργιος → άνδρας, Giota → Παναγιώτα → γυναίκα),
+     * αλλιώς από την κατάληξη. null = άγνωστο (π.χ. ξένο όνομα).
+     */
+    fun gender(name: String?): Gender? {
+        val first = name?.trim()?.split(Regex("[\\s,.]+"))?.firstOrNull()?.takeIf { it.isNotEmpty() } ?: return null
+        val byCanon = match(first).map { wordGender(it) }.toSet()
+        if (byCanon.size == 1) return byCanon.first()
+        return if (isGreek(first)) wordGender(first) else null
+    }
+
     /** Κλητική για ευχή: Νίκος → Νίκο, Αλέξανδρος → Αλέξανδρε, Κώστας → Κώστα, Δημήτρης → Δημήτρη. */
     fun vocative(name: String): String {
         if (name.length < 3) return name

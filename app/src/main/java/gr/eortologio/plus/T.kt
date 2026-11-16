@@ -375,5 +375,14 @@ object T {
         put("📅 Πότε γιορτάζει", "📅 Name days")
         put("📋 Η ευχή αντιγράφηκε — στη Viber κράτα πατημένο το πεδίο μηνύματος → Επικόλληση → Αποστολή", "📋 Wish copied — in Viber long-press the message box → Paste → Send")
         put("Η Viber δεν είναι εγκατεστημένη", "Viber is not installed")
+        put(" (άγνωστο)", " (unknown)")
+        put(" (άνδρας)", " (male)")
+        put(" (γυναίκα)", " (female)")
+        put("+ Νέα ευχή", "+ New wish")
+        put("Κάθε κουτί είναι μία ευχή — κάθε άτομο παίρνει διαφορετική. Το {name} γίνεται το όνομα στην κλητική (π.χ. «Νίκο», «Μαρία»).", "Each box is one wish — every person gets a different one. {name} becomes the person's name.")
+        put("👨 Άνδρας", "👨 Male")
+        put("👩 Γυναίκα", "👩 Female")
+        put("👫 Γράψε «ευτυχισμένος/η», «γερός/γερή», «αγαπημένε/η» και μπαίνει αυτόματα η σωστή λέξη για άνδρα ή γυναίκα.", "👫 In Greek wishes write «ευτυχισμένος/η», «γερός/γερή» and the right word for a man or woman is used automatically.")
+        put("🤖 Αυτόματο", "🤖 Auto")
     }
 }
