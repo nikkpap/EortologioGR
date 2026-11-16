@@ -98,7 +98,8 @@ GitHub → repo → **Settings → Secrets and variables → Actions → New rep
 - **Γλώσσες:** κάθε κείμενο UI γράφεται `T.t("ελληνικά")` και η αγγλική μετάφραση μπαίνει στον πίνακα του `T.kt`. Ημερομηνίες με `T.locale()`. Ρύθμιση `lang` = el (προεπιλογή) / en / auto. Το smoke test ελέγχει και τις δύο γλώσσες.
 - Δεδομένα: `TODAY.DAT` → `Η/Μ Όνομα` ή `+Ν/-Ν Όνομα` (από το Πάσχα), `"…"` = αργία. Επίσημο όνομα· τα υποκοριστικά στο `NAMES.DAT`.
 - Κανόνας Αγ. Γεωργίου/Μάρκου στο `EventStore.Event.onYear()` — μην τον αφαιρέσεις.
-- Μπαταρία: **κανένα** background service. Ένα alarm/ημέρα (`setAndAllowWhileIdle`) + snooze.
+- Μπαταρία: **κανένα** background service. Ένα alarm/ημέρα (`setAndAllowWhileIdle`) + snooze + προαιρετικές επαναλήψεις ανά ώρα (`ACTION_REPEAT`, ακυρώνονται όταν ανοίξει η εφαρμογή).
+- Φωνή (`Speech.kt`): TTS του κινητού, μόνο αν είναι ανοιχτή η ρύθμιση `voice` και το κινητό ΔΕΝ είναι σε σίγαση· χρειάζεται το `<queries> TTS_SERVICE` στο manifest.
 - Ευχές: «λέξη/κατάληξη» (ευτυχισμένος/η, γερός/γερή) → `Wishes.applyGender` με φύλο από `Names.gender` (ή χειροκίνητο `genderMap`).
 - Viber: δεν δέχεται κείμενο μέσω share → πρόχειρο + `viber://chat?number=` (μην το γυρίσεις σε ACTION_SEND).
 - Επαφές: μόνο ανάγνωση, τίποτα δεν αποθηκεύεται/ανεβαίνει εκτός συσκευής.

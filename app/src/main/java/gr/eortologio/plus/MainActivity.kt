@@ -121,7 +121,7 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         vm.refresh() // ενημερώνει κατάσταση αδειών/μπαταρίας όταν επιστρέφουμε από τις Ρυθμίσεις
         val app = applicationContext
-        Thread { TodayWidget.updateAll(app) }.start()
+        Thread { ReminderReceiver.markSeen(app); TodayWidget.updateAll(app) }.start()
     }
 
     private fun handleIntent(i: Intent?) {

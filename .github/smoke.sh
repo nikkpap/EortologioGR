@@ -32,7 +32,7 @@ adb shell cat /sdcard/u.xml | grep -q "Χρόνια πολλά" && echo "LANG_EL
 adb shell input keyevent KEYCODE_HOME
 adb shell pm grant gr.eortologio.plus android.permission.SEND_SMS || true
 adb shell am force-stop gr.eortologio.plus
-printf '<?xml version="1.0" encoding="utf-8"?>\n<map><boolean name="autoSms" value="true" /><string name="autoSmsMode">both</string><boolean name="guideDone" value="true" /><boolean name="askedNotif" value="true" /><boolean name="autoUpdate" value="false" /></map>\n' > /tmp/settings.xml
+printf '<?xml version="1.0" encoding="utf-8"?>\n<map><boolean name="autoSms" value="true" /><string name="autoSmsMode">both</string><boolean name="guideDone" value="true" /><boolean name="askedNotif" value="true" /><boolean name="autoUpdate" value="false" /><boolean name="voice" value="true" /><int name="repeat" value="2" /></map>\n' > /tmp/settings.xml
 adb push /tmp/settings.xml /data/local/tmp/settings.xml
 adb shell chmod 644 /data/local/tmp/settings.xml
 adb shell run-as gr.eortologio.plus mkdir -p shared_prefs || true

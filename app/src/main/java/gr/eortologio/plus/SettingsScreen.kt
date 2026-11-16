@@ -56,6 +56,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.time.LocalDate
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.material.icons.rounded.Repeat
+import androidx.compose.material.icons.rounded.PlayCircle
+import androidx.compose.material.icons.rounded.Face
+import androidx.compose.material.icons.rounded.RecordVoiceOver
 
 private data class Tpl(val key: String, val def: String, val title: String)
 
@@ -75,6 +83,7 @@ fun SettingsScreen(vm: AppViewModel) {
     var timeDlg by remember { mutableStateOf(false) }
     var tpl by remember { mutableStateOf<Tpl?>(null) }
     var smsPeople by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(ListPadding)) {
         // ---------------- Εμφάνιση ----------------
@@ -152,6 +161,55 @@ fun SettingsScreen(vm: AppViewModel) {
                         Wishes.toast(app, if (ok) T.t("Στάλθηκε ✓") else T.t("Τίποτα για σήμερα (ή οι ειδοποιήσεις είναι κλειστές)"))
                     }
                 }.start()
+            }
+        }
+
+        // ---------------- Φωνή & επανάληψη ----------------
+        SectionTitle(T.t("🔊 Φωνή & επανάληψη"))
+        AppCard {
+            val voiceOn = Speech.enabled(ctx)
+            ToggleRow(T.t("Φωνητική ανακοίνωση"), T.t("Μια φωνή λέει ποιος γιορτάζει, π.χ. «Σήμερα γιορτάζουν ο Γιώργος και η Μαρία»"),
+                voiceOn, Icons.Rounded.RecordVoiceOver) { v ->
+                put { it.putBoolean("voice", v) }
+                if (v) scope.launch {
+                    val ok = withContext(Dispatchers.IO) { Speech.languageReady(ctx) }
+                    if (!ok) a.message(installVoiceDlg(ctx))
+                    else withContext(Dispatchers.IO) { Speech.speakBlocking(ctx, T.t("Γεια σου! Έτσι θα σου λέω ποιος γιορτάζει. Χρόνια πολλά!")) }
+                }
+            }
+            if (voiceOn) {
+                Divider()
+                val vName = sp.getString("voiceName", "") ?: ""
+                SettingRow(T.t("Φωνή"), if (vName.isEmpty()) T.t("Αυτόματη (προτιμά γυναικεία)") else vName, Icons.Rounded.Face) {
+                    scope.launch {
+                        val list = withContext(Dispatchers.IO) { Speech.voices(ctx) }
+                        if (list.isEmpty()) { a.message(installVoiceDlg(ctx)); return@launch }
+                        val names = listOf(T.t("🤖 Αυτόματη (προτιμά γυναικεία)")) + list.map { it.second }
+                        val cur = if (vName.isEmpty()) 0 else (list.indexOfFirst { it.first == vName } + 1).coerceAtLeast(0)
+                        a.choose(Choice(T.t("Διάλεξε φωνή (ακούς δείγμα)"), names, cur) { w ->
+                            put { it.putString("voiceName", if (w == 0) "" else list[w - 1].first) }
+                            scope.launch(Dispatchers.IO) { Speech.speakBlocking(ctx, T.t("Γεια σου! Έτσι θα σου λέω ποιος γιορτάζει. Χρόνια πολλά!")) }
+                        })
+                    }
+                }
+                Divider()
+                SettingRow(T.t("Άκου τη σημερινή ανακοίνωση"), T.t("Δοκιμή με τα σημερινά ονόματα"), Icons.Rounded.PlayCircle) {
+                    scope.launch {
+                        val text = withContext(Dispatchers.IO) { Speech.compose(ctx) } ?: T.t("Σήμερα δεν γιορτάζει κανείς από τις επαφές σου. Χρόνια πολλά σε όλους!")
+                        val ok = withContext(Dispatchers.IO) { Speech.speakBlocking(ctx, text) }
+                        if (!ok) a.message(installVoiceDlg(ctx))
+                    }
+                }
+            }
+            Divider()
+            val rep = Speech.repeats(ctx)
+            val h = Prefs.hour(ctx)
+            val m = Prefs.minute(ctx)
+            fun at(plus: Int) = String.format(Names.EL, "%02d:%02d", (h + plus) % 24, m)
+            val repNames = listOf(T.t("Μία φορά") + " (" + at(0) + ")", T.t("2 φορές") + " (" + at(0) + ", " + at(1) + ")",
+                T.t("3 φορές") + " (" + at(0) + ", " + at(1) + ", " + at(2) + ")")
+            SettingRow(T.t("Επανάληψη ειδοποίησης"), repNames[rep.coerceIn(0, 2)] + T.t(" · σταματά μόλις ανοίξεις την εφαρμογή"), Icons.Rounded.Repeat) {
+                a.choose(Choice(T.t("Πόσες φορές την ημέρα;"), repNames, rep.coerceIn(0, 2)) { w -> put { it.putInt("repeat", w) } })
             }
         }
 
@@ -281,6 +339,20 @@ fun SettingsScreen(vm: AppViewModel) {
     tpl?.let { t -> TemplateDialog(t.key, t.def, t.title, onDismiss = { tpl = null; tick++ }) }
     if (smsPeople) SmsContactsDialog(onDismiss = { smsPeople = false; tick++ })
 }
+
+/** Λείπει η ελληνική φωνή → οδηγίες + κουμπί εγκατάστασης. */
+private fun installVoiceDlg(ctx: android.content.Context) = Dlg(
+    T.t("🔊 Χρειάζεται ελληνική φωνή"),
+    T.t("Το κινητό δεν έχει εγκατεστημένη ελληνική φωνή ομιλίας.\n\n1. Πάτα «Εγκατάσταση».\n2. Διάλεξε «Ελληνικά» και κατέβασέ τα (Google Speech Services).\n3. Γύρνα εδώ και πάτα «Άκου τη σημερινή ανακοίνωση»."),
+    confirm = T.t("Εγκατάσταση"), dismiss = T.t("Άκυρο"),
+    onConfirm = {
+        try {
+            ctx.startActivity(Intent(android.speech.tts.TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        } catch (_: Exception) {
+            try { ctx.startActivity(Intent("com.android.settings.TTS_SETTINGS").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } catch (_: Exception) {}
+        }
+    },
+)
 
 private fun tplSummary(ctx: android.content.Context, key: String, def: String): String {
     val n = Wishes.templates(ctx, key, def).size

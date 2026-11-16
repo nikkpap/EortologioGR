@@ -29,12 +29,21 @@ class ReminderReceiver : BroadcastReceiver() {
             val pm = app.getSystemService(Context.POWER_SERVICE) as? PowerManager
             val wl = pm?.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Eortologio:notify")
             try {
-                wl?.acquire(20_000)
+                wl?.acquire(60_000)
                 when (action) {
                     ACTION_SNOOZE -> snooze(app, intent.getIntExtra(EXTRA_MIN, 60))
                     ACTION_SHOW -> {
                         val day = intent.getStringExtra(EXTRA_DAY)
-                        if (day == null || day == LocalDate.now().toString()) post(app, snoozed = true)
+                        if ((day == null || day == LocalDate.now().toString()) && post(app, snoozed = true)) Speech.announceIfOn(app)
+                    }
+                    ACTION_REPEAT -> {
+                        val day = intent.getStringExtra(EXTRA_DAY)
+                        val left = intent.getIntExtra(EXTRA_LEFT, 0)
+                        // Επανάληψη μόνο την ίδια μέρα (αν ο χρήστης άνοιξε την εφαρμογή, το alarm έχει ήδη ακυρωθεί)
+                        if (day == LocalDate.now().toString() && post(app, snoozed = false)) {
+                            Speech.announceIfOn(app)
+                            if (left > 1) scheduleRepeat(app, left - 1)
+                        }
                     }
                     ACTION_MIDNIGHT -> {
                         EventStore.get(app).invalidate()
@@ -56,8 +65,12 @@ class ReminderReceiver : BroadcastReceiver() {
                         if (AutoWishes.enabled(app) && !AutoWishes.cancelledToday(app)) {
                             if (AutoWishes.confirmFirst(app)) askBeforeSending(app) else sent = AutoWishes.sendToday(app)
                         }
-                        post(app, snoozed = false, autoSent = sent)
+                        val shown = post(app, snoozed = false, autoSent = sent)
                         TodayWidget.updateAll(app)
+                        if (shown) {
+                            scheduleRepeat(app, Speech.repeats(app))
+                            Speech.announceIfOn(app)
+                        }
                     } finally {
                         schedule(app)
                     }
@@ -78,6 +91,8 @@ class ReminderReceiver : BroadcastReceiver() {
         const val ACTION_AUTOSMS_SEND = "gr.eortologio.plus.AUTOSMS_SEND"
         const val ACTION_AUTOSMS_CANCEL = "gr.eortologio.plus.AUTOSMS_CANCEL"
         const val ACTION_MIDNIGHT = "gr.eortologio.plus.MIDNIGHT"
+        const val ACTION_REPEAT = "gr.eortologio.plus.REPEAT"
+        const val EXTRA_LEFT = "left"
         const val EXTRA_MIN = "minutes"
         const val EXTRA_DAY = "day"
         const val NOTIF_ID = 41
@@ -86,6 +101,7 @@ class ReminderReceiver : BroadcastReceiver() {
         private const val RC_SNOOZE = 42
         private const val RC_SMS = 43
         private const val RC_MIDNIGHT = 44
+        private const val RC_REPEAT = 45
         const val CONFIRM_MINUTES = 60
         private const val COLOR = 0xff6657dd.toInt()
 
@@ -108,6 +124,20 @@ class ReminderReceiver : BroadcastReceiver() {
             var next = now.toLocalDate().atTime(Prefs.hour(ctx), Prefs.minute(ctx))
             if (!next.isAfter(now)) next = next.plusDays(1)
             am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, next.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli(), p)
+        }
+
+        /** Ο χρήστης άνοιξε την εφαρμογή (είδε τις γιορτές) → ακυρώνονται οι επαναλήψεις που εκκρεμούν. */
+        fun markSeen(ctx: Context) {
+            am(ctx)?.cancel(pending(ctx, ACTION_REPEAT, RC_REPEAT, null))
+        }
+
+        /** Ξανά η ειδοποίηση (και η φωνή) σε 1 ώρα· [count] = πόσες φορές ακόμα (0 = καμία). */
+        fun scheduleRepeat(ctx: Context, count: Int) {
+            val am = am(ctx) ?: return
+            if (count <= 0) { am.cancel(pending(ctx, ACTION_REPEAT, RC_REPEAT, null)); return }
+            val extra = Intent().putExtra(EXTRA_DAY, LocalDate.now().toString()).putExtra(EXTRA_LEFT, count)
+            am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + 60 * 60_000L,
+                pending(ctx, ACTION_REPEAT, RC_REPEAT, extra))
         }
 
         /** Ανανέωση widget λίγο μετά τα μεσάνυχτα — μόνο αν υπάρχει widget (αλλιώς κανένα επιπλέον ξύπνημα). */
