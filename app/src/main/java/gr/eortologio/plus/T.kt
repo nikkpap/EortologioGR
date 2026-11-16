@@ -373,5 +373,7 @@ object T {
         put("κανείς ακόμα — από το ⋮ της επαφής", "nobody yet — use ⋮ on a contact")
         put("👥 Από τις επαφές σου", "👥 From your contacts")
         put("📅 Πότε γιορτάζει", "📅 Name days")
+        put("📋 Η ευχή αντιγράφηκε — στη Viber κράτα πατημένο το πεδίο μηνύματος → Επικόλληση → Αποστολή", "📋 Wish copied — in Viber long-press the message box → Paste → Send")
+        put("Η Viber δεν είναι εγκατεστημένη", "Viber is not installed")
     }
 }

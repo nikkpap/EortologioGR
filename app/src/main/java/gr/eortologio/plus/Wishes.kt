@@ -93,7 +93,25 @@ object Wishes {
         start(ctx, i, T.t("Το WhatsApp δεν είναι εγκατεστημένο"))
     }
 
-    fun viber(ctx: Context, h: Hit) = share(ctx, h, "com.viber.voip")
+    /**
+     * Viber: δεν δέχεται κείμενο από άλλη εφαρμογή (ανοίγει το «Forward to» με κενό μήνυμα).
+     * Γι' αυτό: το μήνυμα μπαίνει στο πρόχειρο και ανοίγει κατευθείαν η συνομιλία με την επαφή
+     * → ο χρήστης κάνει «Επικόλληση» και «Αποστολή».
+     */
+    fun viber(ctx: Context, h: Hit) {
+        val msg = message(ctx, h)
+        (ctx.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager)
+            ?.setPrimaryClip(ClipData.newPlainText(T.t("Ευχές"), msg))
+        val num = intl(h.person.phone)
+        val uri = if (num.isNotEmpty()) "viber://chat?number=" + Uri.encode("+$num")
+        else "viber://forward?text=" + Uri.encode(msg)
+        try {
+            ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(uri)).setPackage("com.viber.voip"))
+            Toast.makeText(ctx, T.t("📋 Η ευχή αντιγράφηκε — στη Viber κράτα πατημένο το πεδίο μηνύματος → Επικόλληση → Αποστολή"), Toast.LENGTH_LONG).show()
+        } catch (_: ActivityNotFoundException) {
+            toast(ctx, T.t("Η Viber δεν είναι εγκατεστημένη"))
+        }
+    }
 
     fun call(ctx: Context, h: Hit) {
         val ph = h.person.phone ?: run { toast(ctx, T.t("Η επαφή δεν έχει τηλέφωνο")); return }
